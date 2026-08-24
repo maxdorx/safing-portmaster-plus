@@ -98,6 +98,11 @@ func start() error {
 		// Load tokens from database.
 		loadTokens()
 
+		// Advertise the features this build enables locally, so the UI unlocks them.
+		if err := ensureLocalFeaturePlan(); err != nil {
+			log.Warningf("spn/access: failed to apply local feature plan: %s", err)
+		}
+
 		// Check if we need to enable SPN now.
 		enabled := config.GetAsBool("spn/enable", false)
 		if enabled() {
