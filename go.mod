@@ -32,7 +32,7 @@ require (
 	github.com/hectane/go-acl v0.0.0-20230122075934-ca0b05cb1adb
 	github.com/ivpn/desktop-app/daemon/protocol/ivpnclient v0.0.0-20260403070528-13364be7597e
 	github.com/jackc/puddle/v2 v2.2.2
-	github.com/jaswdr/faker/v2 v2.9.0
+	github.com/jaswdr/faker/v2 v2.9.1
 	github.com/lmittmann/tint v1.1.2
 	github.com/maruel/panicparse/v2 v2.5.0
 	github.com/mattn/go-colorable v0.1.14
