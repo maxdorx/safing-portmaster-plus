@@ -1,6 +1,6 @@
 module github.com/safing/portmaster
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/VictoriaMetrics/metrics v1.40.2
@@ -50,7 +50,7 @@ require (
 	github.com/seehuhn/fortuna v1.0.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/simukti/sqldb-logger v0.0.0-20230108155151-646c1a075551
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	github.com/spkg/zipfs v0.7.1
 	github.com/stephenafamo/bob v0.41.1
 	github.com/stretchr/testify v1.11.1
@@ -62,12 +62,12 @@ require (
 	github.com/umahmood/haversine v0.0.0-20151105152445-808ab04add26
 	github.com/varlink/go v0.4.0
 	github.com/vincent-petithory/dataurl v1.0.0
-	go.etcd.io/bbolt v1.4.3
+	go.etcd.io/bbolt v1.5.0
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546
 	golang.org/x/image v0.33.0
 	golang.org/x/net v0.49.0
-	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.41.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/sys v0.45.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.40.0
 	zombiezen.com/go/sqlite v1.4.2
