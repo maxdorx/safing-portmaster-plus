@@ -57,7 +57,7 @@ require (
 	github.com/tannerryan/ring v1.1.2
 	github.com/tc-hib/winres v0.3.1
 	github.com/tevino/abool v1.2.0
-	github.com/tidwall/gjson v1.18.0
+	github.com/tidwall/gjson v1.19.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/umahmood/haversine v0.0.0-20151105152445-808ab04add26
 	github.com/varlink/go v0.4.0
