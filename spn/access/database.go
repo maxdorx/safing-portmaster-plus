@@ -56,6 +56,11 @@ func (user *UserRecord) MayUsePrioritySupport() bool {
 // the given feature ID.
 // Leave feature ID empty to check without feature.
 func (user *UserRecord) MayUse(featureID account.FeatureID) bool {
+	// Features enabled by this build, independently of the account.
+	if isLocallyEnabled(featureID) {
+		return true
+	}
+
 	// Shadow this function in order to allow calls on a nil user.
 	if user == nil || user.User == nil {
 		return false
