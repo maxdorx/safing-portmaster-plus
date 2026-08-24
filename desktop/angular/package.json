@@ -51,7 +51,7 @@
     "@tauri-apps/plugin-os": ">=2.0.0",
     "@tauri-apps/plugin-shell": "^2.0.1",
     "@tauri-apps/plugin-websocket": "^2.3.0",
-    "autoprefixer": "^10.4.14",
+    "autoprefixer": "^10.5.4",
     "d3": "^7.8.4",
     "data-urls": "^5.0.0",
     "emoji-toolkit": "^7.0.1",
