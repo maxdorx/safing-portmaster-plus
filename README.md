@@ -1,107 +1,113 @@
-# Get Peace of Mind <br> with [Easy Privacy](https://safing.io/)
+# safing-portmaster-plus
 
-Portmaster is a free and open-source application firewall that does the heavy lifting for you.
-Restore privacy and take back control over all your computer's network activity.
+An unofficial fork of [Safing's Portmaster](https://github.com/safing/portmaster) that enables **Network History** and **Bandwidth Visibility** — the two device-local features otherwise reserved for the paid Portmaster Plus tier — in a self-compiled build.
 
-With great defaults your privacy improves without any effort. And if you want to configure and control everything down to the last detail - Portmaster has you covered too. Developed in the EU 🇪🇺, Austria.
+> **Not affiliated with Safing ICS Technologies GmbH.** "Safing" and "Portmaster" are their trademarks, used here only to describe what this fork modifies. This is a community modification. Do not report issues with this build to Safing.
 
-__[Download for Free](https://safing.io/download/)__
+## What this does
 
-__[About Us](https://safing.io/about/)__
+| Feature | Status | Why |
+|---|---|---|
+| Network History | Enabled | Writes connections to a local SQLite database on your own machine |
+| Bandwidth Visibility | Enabled | Counts bytes per connection, locally |
+| SPN (Safing Privacy Network) | **Not enabled — and cannot be** | See below |
 
-![Portmaster User Interface](https://safing.io/assets/img/page-specific/landing/portmaster-thumbnail.png?)
+### Why these two can be enabled and SPN cannot
 
-_seen on:_  
+Portmaster gates features in two fundamentally different ways.
 
-[<img src="https://safing.io/assets/img/external/heise_online.svg" height="35">](https://www.heise.de/tests/Datenschutz-Firewall-Portmaster-im-Test-9611687.html)
-&nbsp;&nbsp;&nbsp;
-[![ghacks.net](https://safing.io/assets/img/external/ghacks.png)](https://www.ghacks.net/2022/11/08/portmaster-1-0-released-open-source-application-firewall/)
-&nbsp;&nbsp;&nbsp;
-[![Techlore](https://safing.io/assets/img/external/techlore.png)](https://www.youtube.com/watch?v=E8cTRhGtmcM)
-&nbsp;&nbsp;&nbsp;
-[![Lifehacker](https://safing.io/assets/img/external/logos/lifehacker.webp)](https://lifehacker.com/the-lesser-known-apps-everyone-should-install-on-a-new-1850223434)
+Network History and Bandwidth Visibility are gated by a **boolean check inside the process running on your own machine**. The code implementing them ships complete in every build; a subscription check simply sets a flag in front of it. That is a licensing decision, not a technical one, and this fork changes it.
 
-## [Features](https://safing.io/features/)
+SPN is gated by **cryptography running on Safing's servers**. Access tokens are blind-signed by their account server and verified by every Hub before it will grant the permissions needed to build a tunnel. That check does not run on your computer, so no patch to this codebase can affect it. Adding SPN to the allowlist would unlock a button and produce nothing but failed connections — which is why the code explicitly refuses to.
 
-1. Monitor All Network Activity
-2. Full Control: Block Anything
-3. Automatically Block Trackers & Malware
-4. Set Global & Per‑App Settings
-5. Secure DNS (Doh/DoT)
-6. Record and Search Network Activity ([$](https://safing.io/pricing/))
-7. Per-App Bandwidth Usage ([$](https://safing.io/pricing/))
-8. [SPN, our Next-Gen Privacy Network](https://safing.io/spn/) ([$$](https://safing.io/pricing/))
+## What changed
 
-# Technical Introduction
+Three commits, **203 lines added, 0 removed**. Nothing upstream is rewritten or deleted, so this rebases cleanly onto future releases.
 
-Portmaster is a privacy suite for your Windows and Linux desktop.
+- **`spn/access/local_features.go`** *(new)* — an explicit allowlist of locally enabled features, plus the logic that publishes it.
+- **`spn/access/database.go`** *(+5)* — `UserRecord.MayUse` consults the allowlist. This wrapper, not `account.User.MayUse`, is the effective gate: it returns `false` early when nobody is logged in, before the real subscription logic is ever reached.
+- **`spn/access/module.go`** *(+10)* — applies the feature plan from a worker at startup.
+- **`spn/access/local_features_test.go`** *(new)* — regression tests.
 
-### Base Technology
+### The backend is only half of it
 
-- Portmaster integrates into network stack using nfqueue on Linux and a kernel driver (WFP) on Windows.
-- Packets are intercepted at the raw packet level - every packet is seen and can be stopped.
-- Ownership of connections is found using eBPF and `/proc` on Linux and a kernel driver and the IP Helper API (`iphlpapi.dll`) on Windows.
-- Most settings can be defined per app, which can be matched in different ways.
-- Support for special processes with weird or concealed paths/actors:
-  - Snap, AppImage and Script support on Linux
-  - Windows Store apps and svchost.exe system services support on Windows
-- Everything is 100% local on your device. (except the SPN, naturally)
-  - Updates are fully signed and downloaded automatically.
-  - Intelligence data (block lists, geoip) is downloaded and applied automatically.
-- The Portmaster Core Service runs as a system service, the UI elements (App, Notifier) run in user context.
-- The main UI still uses electron as a wrapper :/ - but this will change in the future. You can also open the UI in the browser
+The user interface never calls `MayUse`. It watches the database record `core:spn/account/user` over a websocket and derives every lock — ribbons, disabled toggles, hidden data tiles — from `current_plan.feature_ids`. Patching only the backend makes the features *work* while the UI keeps them invisible and unclickable.
 
-### Feature: Secure DNS
+So this fork also publishes the same allowlist through that record. The record is stored in the **logged-out** state: `IsLoggedIn()` still reports false, nothing contacts Safing, and logging in for real replaces it wholesale.
 
-- Portmaster intercepts "astray" DNS queries and reroutes them to itself for seamless integration.
-- DNS queries are resolved by the default or configured DoT/DoH resolvers.
-- Full support for split horizon and horizon validation to defend against rebinding attacks.
+## Installing
 
-### Feature: Privacy Filter
+You keep the official installation and replace exactly one file: the userspace Go binary. The signed kernel driver, the UI bundle, and the service registration all stay as the installer left them. No Windows Driver Kit, no test-signing, no Secure Boot changes.
 
-- Define allowed network scopes: Localhost, LAN, Internet, P2P, Inbound.
-- Easy rules based on Internet entities: Domain, IP, Country and more.
-- Filter Lists block common malware, ad, tracker domains etc.
+> **Read this first.** Portmaster is a firewall with a kernel driver. If the core service fails to start, the driver keeps intercepting packets with no userspace left to make decisions, and **all network traffic stops** — including after a reboot. The `Manual` startup step below exists so a failure cannot survive a restart. Do not skip it.
 
-### Feature: Network History ($)
+1. Install Portmaster **v2.2.1** normally from [safing.io](https://safing.io/download/) and confirm it works.
 
-- Record connections and their details in a local database and search all of it later
-- Auto-delete old history or delete on demand
+2. Verify the version matches this build, in an **elevated** PowerShell:
 
-### Feature: Bandwidth Visibility ($)
+   ```powershell
+   & "C:\Program Files\Portmaster\portmaster-core.exe" version
+   ```
 
-- Monitor bandwidth usage per connection and app
+   If it is not 2.2.1, do not continue — build from the matching tag instead.
 
-### Feature: SPN - Safing Privacy Network ($$)
+3. Make a failure survivable:
 
-- A Privacy Network aimed at use cases "between" VPN and Tor.
-- Uses onion encryption over multiple hops just like Tor.
-- Routes are chosen to cover most distance within the network to increase privacy.
-- Exits are chosen near the destination server. This automatically geo-unblocks in many cases.
-- Exclude apps and domains/entities from using SPN.
-- Change routing algorithm and focus per app.
-- Nodes are hosted by Safing (company behind Portmaster) and the community.
-- Speeds are pretty decent (>100MBit/s).
-- Further Reading: [SPN Whitepaper](https://safing.io/files/whitepaper/Gate17.pdf)
+   ```powershell
+   Set-Service PortmasterCore -StartupType Manual
+   ```
 
-## Documentation
+4. Swap the binary:
 
-All details and guides in the dedicated [wiki](https://wiki.safing.io/)
+   ```powershell
+   Stop-Service PortmasterCore
+   Copy-Item "C:\Program Files\Portmaster\portmaster-core.exe" "C:\Program Files\Portmaster\portmaster-core.exe.orig"
+   Copy-Item "<downloaded>\portmaster-core.exe" "C:\Program Files\Portmaster\portmaster-core.exe" -Force
+   Start-Service PortmasterCore
+   ```
 
-- [Getting Started](https://wiki.safing.io/en/Portmaster/App)
-- Install
-  - [on Windows](https://wiki.safing.io/en/Portmaster/Install/Windows)
-  - [on Linux](https://wiki.safing.io/en/Portmaster/Install/Linux)
-- [Contribute](https://wiki.safing.io/en/Contribute)
-- [VPN Compatibility](https://wiki.safing.io/en/Portmaster/App/Compatibility#vpn-compatibly)
-- [Software Compatibility](https://wiki.safing.io/en/Portmaster/App/Compatibility)
-- [Architecture](https://wiki.safing.io/en/Portmaster/Architecture)
-- [Settings Handbook](https://docs.safing.io/portmaster/settings)
-- [Portmaster Developer API](https://docs.safing.io/portmaster/api)
+5. If it starts promptly, restore automatic startup:
 
-# Build Portmaster Yourself (WIP)
+   ```powershell
+   Set-Service PortmasterCore -StartupType Automatic
+   ```
 
-1. [Install Earthly CLI](https://earthly.dev/get-earthly)
-2. [Install Docker Engine](https://docs.docker.com/engine/install/)
-3. Run `earthly +release`
-4. Find artifacts in `./dist`
+   If it hangs instead, reboot. With `Manual` startup the service will not come up, your network works normally, and you can restore `portmaster-core.exe.orig` at your leisure.
+
+6. Open Portmaster. The dashboard should read **"Your current plan is Local Build"**, and Network History and Bandwidth Visibility should be unlocked. Enable Network History from its toggle in Global Settings.
+
+### Reverting
+
+Stop the service, copy `portmaster-core.exe.orig` back over `portmaster-core.exe`, start it. Note that the stored user record persists: the stock UI will still show the features unlocked while the stock backend refuses them. Logging in, or clearing the record, resets it.
+
+## Building from source
+
+Requires Go 1.24+. No C toolchain — the build is `CGO_ENABLED=0`.
+
+```bash
+git clone https://github.com/maxdorx/safing-portmaster-plus.git
+cd safing-portmaster-plus
+CGO_ENABLED=0 go build -trimpath \
+  -ldflags="-X github.com/safing/portmaster/base/info.version=2.2.1" \
+  -o portmaster-core.exe ./cmds/portmaster-core
+```
+
+Run the tests:
+
+```bash
+go test ./spn/access/ -short
+```
+
+`TestApplyLocalFeaturesReleasesLock` is not optional decoration. An earlier version of this patch held a record lock across a save that re-locks the same record; `sync.Mutex` is not reentrant, so it self-deadlocked inside module startup and took down all networking on the test machine until Portmaster was uninstalled. That test fails if the locking discipline regresses.
+
+## License and trademarks
+
+GPLv3, same as upstream — see [LICENSE](LICENSE). Distributing binaries built from this source obliges you to make the corresponding source available; that is what this repository is for.
+
+"Safing", "Portmaster" and their logos are trademarks of Safing ICS Technologies GmbH. See [TRADEMARKS](TRADEMARKS). This fork uses those names descriptively and claims no affiliation, endorsement, or origin.
+
+## Support the upstream project
+
+Portmaster is a genuinely good piece of open-source software from a small team, and the subscription is what funds it. If you get value out of it, [buy a package](https://safing.io/pricing/) — especially if you want SPN, which is the part with real server and bandwidth costs behind it and the part this fork cannot give you.
+
+Upstream README preserved at [README.upstream.md](README.upstream.md).
