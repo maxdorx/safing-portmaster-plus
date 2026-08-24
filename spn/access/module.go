@@ -98,10 +98,15 @@ func start() error {
 		// Load tokens from database.
 		loadTokens()
 
-		// Advertise the features this build enables locally, so the UI unlocks them.
-		if err := ensureLocalFeaturePlan(); err != nil {
-			log.Warningf("spn/access: failed to apply local feature plan: %s", err)
-		}
+		// Advertise the features this build enables locally, so the UI unlocks
+		// them. This runs off the startup path on purpose: the firewall holds
+		// packets until the service is up, so nothing here may block start().
+		module.mgr.Go("apply local feature plan", func(_ *mgr.WorkerCtx) error {
+			if err := ensureLocalFeaturePlan(); err != nil {
+				log.Warningf("spn/access: failed to apply local feature plan: %s", err)
+			}
+			return nil
+		})
 
 		// Check if we need to enable SPN now.
 		enabled := config.GetAsBool("spn/enable", false)
