@@ -112,7 +112,8 @@ func handleLogout(ar *api.Request) (msg string, err error) {
 
 func handleGetUserProfile(ar *api.Request) (r record.Record, err error) {
 	if conf.Integrated() {
-		if err := ensureLocalFeaturePlan(); err != nil {
+		err = ensureLocalFeaturePlan()
+		if err != nil {
 			return nil, err
 		}
 		return GetUser()

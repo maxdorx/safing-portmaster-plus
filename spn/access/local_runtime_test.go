@@ -11,9 +11,11 @@ import (
 	"github.com/safing/portmaster/spn/conf"
 )
 
+var errUnexpectedAccountRequest = errors.New("unexpected account network request")
+
 // With integration enabled even a direct caller cannot use account credentials,
 // mutate stored account state, or trigger a token request.
-func TestIntegratedAccountOperationsUnavailable(t *testing.T) {
+func TestIntegratedAccountOperationsUnavailable(t *testing.T) { //nolint:paralleltest // uses shared account module and configuration.
 	previousIntegration := conf.Integrated()
 	conf.EnableIntegration(true)
 	defer conf.EnableIntegration(previousIntegration)
@@ -22,24 +24,33 @@ func TestIntegratedAccountOperationsUnavailable(t *testing.T) {
 	requests := 0
 	accountClient = &http.Client{Transport: localOnlyTransport(func(*http.Request) (*http.Response, error) {
 		requests++
-		return nil, errors.New("unexpected account network request")
+		return nil, errUnexpectedAccountRequest
 	})}
-	if _, _, err := Login("stored-user", "password"); err == nil {
+	_, _, err := Login("stored-user", "password")
+	if err == nil {
 		t.Error("Login succeeded")
 	}
-	if err := Logout(false, true); err == nil {
+	err = Logout(false, true)
+	if err == nil {
 		t.Error("Logout allowed stored credentials to be purged")
 	}
-	if _, _, err := UpdateUser(); err == nil {
+	_, _, err = UpdateUser()
+	if err == nil {
 		t.Error("UpdateUser succeeded")
 	}
-	if err := UpdateTokens(); err == nil {
+	err = UpdateTokens()
+	if err == nil {
 		t.Error("UpdateTokens succeeded")
 	}
-	if err := UpdateAccount(nil); err == nil {
+	err = UpdateAccount(nil)
+	if err == nil {
 		t.Error("UpdateAccount succeeded")
 	}
-	if _, err := makeClientRequest(nil); err == nil {
+	response, requestErr := makeClientRequest(nil)
+	if response != nil && response.Body != nil {
+		_ = response.Body.Close()
+	}
+	if requestErr == nil {
 		t.Error("account transport was available")
 	}
 	if requests != 0 {
@@ -47,23 +58,27 @@ func TestIntegratedAccountOperationsUnavailable(t *testing.T) {
 	}
 }
 
-func TestIntegratedAccessRetainsCredentials(t *testing.T) {
+func TestIntegratedAccessRetainsCredentials(t *testing.T) { //nolint:paralleltest // uses shared account module and configuration.
 	if module.updateAccountWorkerMgr != nil {
 		t.Fatal("integrated runtime created an account worker")
 	}
 	for _, path := range []string{"spn/account/login", "spn/account/logout"} {
-		if _, err := api.GetEndpointByPath(path); err == nil {
+		_, err := api.GetEndpointByPath(path)
+		if err == nil {
 			t.Errorf("mutation endpoint registered: %s", path)
 		}
 	}
-	if _, err := api.GetEndpointByPath("spn/account/user/profile"); err != nil {
+	_, err := api.GetEndpointByPath("spn/account/user/profile")
+	if err != nil {
 		t.Error("local feature plan endpoint unavailable")
 	}
-	credential := &AuthTokenRecord{Token: &account.AuthToken{Device: "stored-device", Token: "stored-token"}}
-	if err := credential.Save(); err != nil {
+	credential := &AuthTokenRecord{Token: &account.AuthToken{Device: localTestStoredDevice, Token: "stored-token"}}
+	err = credential.Save()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := module.Stop(); err != nil {
+	err = module.Stop()
+	if err != nil {
 		t.Fatal(err)
 	}
 	clearUserCaches()
@@ -71,21 +86,23 @@ func TestIntegratedAccessRetainsCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if saved.Token.Device != "stored-device" || saved.Token.Token != "stored-token" {
+	if saved.Token.Device != localTestStoredDevice || saved.Token.Token != "stored-token" {
 		t.Fatal("stored credentials changed")
 	}
 }
 
-func TestLegacyEnabledSPNStaysStoppedOnConfigChange(t *testing.T) {
+func TestLegacyEnabledSPNStaysStoppedOnConfigChange(t *testing.T) { //nolint:paralleltest // uses shared account module and configuration.
 	group := module.instance.SPNGroup()
-	if stopped, err := group.IsStopped(); err != nil || !stopped {
+	stopped, err := group.IsStopped()
+	if err != nil || !stopped {
 		t.Fatalf("legacy setting activated SPN at startup: %v", err)
 	}
 	module.instance.Config().EventConfigChange.Submit(struct{}{})
 	if !module.instance.Config().Manager().WaitForWorkers(5*time.Second) || !module.Manager().WaitForWorkers(5*time.Second) {
 		t.Fatal("configuration workers did not finish")
 	}
-	if stopped, err := group.IsStopped(); err != nil || !stopped {
+	stopped, err = group.IsStopped()
+	if err != nil || !stopped {
 		t.Fatalf("configuration change activated SPN: %v", err)
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"github.com/safing/portmaster/spn/access/account"
 )
 
+const localTestStoredDevice = "stored-device"
+
 // TestApplyLocalFeaturesReleasesLock guards against the regression that took
 // the firewall down: the first version held the record lock across Save, which
 // re-locks the record via db.Put. sync.Mutex is not reentrant, so it
@@ -35,7 +37,7 @@ func TestLocalPlanReplacesStoredSubscriptionFeatures(t *testing.T) {
 	user := &UserRecord{User: &account.User{
 		State:        account.UserStateApproved,
 		Username:     "stored-user",
-		Device:       &account.Device{ID: "stored-device"},
+		Device:       &account.Device{ID: localTestStoredDevice},
 		Subscription: &account.Subscription{EndsAt: &endsAt},
 		CurrentPlan:  &account.Plan{Name: "Unlimited", FeatureIDs: []account.FeatureID{account.FeatureSPN, account.FeatureSafingSupport}},
 		View:         &account.View{ShowLoginButton: true, ShowAccountButton: true},
@@ -55,7 +57,7 @@ func TestLocalPlanReplacesStoredSubscriptionFeatures(t *testing.T) {
 	if user.View.ShowLoginButton || user.View.ShowAccountButton {
 		t.Error("local plan exposes account actions")
 	}
-	if user.Username != "stored-user" || user.Device.ID != "stored-device" || user.Subscription.EndsAt != &endsAt {
+	if user.Username != "stored-user" || user.Device.ID != localTestStoredDevice || user.Subscription.EndsAt != &endsAt {
 		t.Error("stored credentials or subscription were discarded")
 	}
 	if applyLocalFeatures(user) {

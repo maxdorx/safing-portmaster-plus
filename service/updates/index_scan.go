@@ -305,9 +305,10 @@ func GetSHA256(path string, unpackType string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		hash := sha256.New()
-		if _, err := io.Copy(hash, file); err != nil {
+		_, err = io.Copy(hash, file)
+		if err != nil {
 			return "", err
 		}
 		return hex.EncodeToString(hash.Sum(nil)), nil

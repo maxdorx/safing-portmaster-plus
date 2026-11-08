@@ -76,7 +76,8 @@ func start() error {
 		// Publish local feature gates off the firewall startup path. Do not load
 		// tokens, schedule account workers, or observe persisted SPN settings.
 		module.mgr.Go("apply local feature plan", func(_ *mgr.WorkerCtx) error {
-			if err := ensureLocalFeaturePlan(); err != nil {
+			err := ensureLocalFeaturePlan()
+			if err != nil {
 				log.Warningf("access: failed to apply local feature plan: %s", err)
 			}
 			return nil
@@ -85,7 +86,8 @@ func start() error {
 	}
 
 	// Initialize zones.
-	if err := InitializeZones(); err != nil {
+	err := InitializeZones()
+	if err != nil {
 		return err
 	}
 

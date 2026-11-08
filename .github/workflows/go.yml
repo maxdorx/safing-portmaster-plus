@@ -58,9 +58,7 @@ jobs:
       with:
         version: v2.12.2
         install-mode: goinstall
-        only-new-issues: true
-        # The action applies only-new-issues automatically to PRs, not pushes.
-        # Check all fork changes against the upstream 2.2.8 source on both.
+        # Use an explicit upstream baseline for every fork change on PRs and pushes.
         args: -c ./.golangci.yml --timeout 15m --new-from-rev=5c82035444a6a383b8b7011ff6834a52f2d238a4
 
     - name: Run go vet

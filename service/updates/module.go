@@ -42,7 +42,7 @@ var UserAgent = fmt.Sprintf("Portmaster Plus (%s %s)", runtime.GOOS, runtime.GOA
 
 // Errors.
 var (
-	ErrManualUpdatesOnly = errors.New("Portmaster Plus application updates must be installed manually")
+	ErrManualUpdatesOnly = errors.New("application updates for Portmaster Plus must be installed manually")
 	ErrNotFound          = errors.New("file not found")
 	ErrSameIndex         = errors.New("same index")
 
@@ -210,11 +210,12 @@ func New(instance instance, name string, cfg Config) (*Updater, error) {
 
 	// Locally built application artifacts intentionally differ from the signed upstream index.
 	if cfg.ManualOnly {
-		index, err := GenerateIndexFromDir(cfg.Directory, IndexScanConfig{Name: cfg.Name, Version: info.VersionNumber(), IgnoreFiles: []string{"index.json", "*.orig", "upgrade_obsolete_binaries/*", "download_binaries/*"}})
+		index, err := GenerateIndexFromDir(cfg.Directory, IndexScanConfig{Name: cfg.Name, Version: info.VersionNumber(), IgnoreFiles: []string{cfg.IndexFile, "*.orig", "upgrade_obsolete_binaries/*", "download_binaries/*"}})
 		if err != nil {
 			return nil, err
 		}
-		if err := index.init(currentPlatform); err != nil {
+		err = index.init(currentPlatform)
+		if err != nil {
 			return nil, err
 		}
 		module.index = index

@@ -8,7 +8,7 @@ import (
 	"github.com/safing/portmaster/spn/conf"
 )
 
-func TestIntegratedCaptainIsDormant(t *testing.T) {
+func TestIntegratedCaptainIsDormant(t *testing.T) { //nolint:paralleltest // constructs the singleton Captain module.
 	conf.EnableIntegration(true)
 	defer conf.EnableIntegration(false)
 	// An absent instance is intentional: dormant construction must not access
@@ -23,16 +23,20 @@ func TestIntegratedCaptainIsDormant(t *testing.T) {
 	if captain.publicIdentityUpdater != nil || captain.statusUpdater != nil {
 		t.Fatal("SPN workers initialized")
 	}
-	if _, err := api.GetEndpointByPath("spn/reinit"); err == nil {
+	_, err = api.GetEndpointByPath("spn/reinit")
+	if err == nil {
 		t.Error("SPN activation endpoint registered")
 	}
-	if _, err := config.GetOption("spn/enable"); err == nil {
+	_, err = config.GetOption("spn/enable")
+	if err == nil {
 		t.Error("SPN activation setting registered")
 	}
-	if err := captain.Start(); err != nil {
+	err = captain.Start()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := captain.Stop(); err != nil {
+	err = captain.Stop()
+	if err != nil {
 		t.Fatal(err)
 	}
 	if GetSPNStatus().Status != StatusDisabled {

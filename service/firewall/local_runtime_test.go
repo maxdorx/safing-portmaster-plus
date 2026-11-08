@@ -8,6 +8,8 @@ import (
 )
 
 func TestSPNTunnelingUnavailable(t *testing.T) {
+	t.Parallel()
+
 	// Even an old profile must not cause profile access, network lookup, or
 	// fail-closed SPN readiness checks in this build.
 	conn := &network.Connection{Verdict: network.VerdictAccept}
@@ -15,7 +17,8 @@ func TestSPNTunnelingUnavailable(t *testing.T) {
 	if conn.Verdict != network.VerdictAccept || conn.Tunneled {
 		t.Fatal("SPN altered a locally accepted connection")
 	}
-	if err := requestTunneling(context.Background(), conn); err == nil {
+	err := requestTunneling(context.Background(), conn)
+	if err == nil {
 		t.Fatal("SPN tunnel request succeeded")
 	}
 }

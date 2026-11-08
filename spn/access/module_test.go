@@ -46,7 +46,8 @@ func TestMain(m *testing.M) {
 
 	// Inject a memory database so these unit tests do not apply production
 	// filesystem ACLs to storage subdirectories on Windows.
-	if err := database.Initialize(_dataDir); err != nil {
+	err = database.Initialize(_dataDir)
+	if err != nil {
 		fmt.Printf("initialize database: %s", err)
 		return
 	}
@@ -64,7 +65,8 @@ func TestMain(m *testing.M) {
 		fmt.Printf("create memory database: %s", err)
 		return
 	}
-	if _, err := database.InjectDatabase("core", storage); err != nil {
+	_, err = database.InjectDatabase("core", storage)
+	if err != nil {
 		fmt.Printf("inject memory database: %s", err)
 		return
 	}
@@ -79,7 +81,8 @@ func TestMain(m *testing.M) {
 		return // Exit with error
 	}
 	// Simulate a configuration loaded from an older SPN-enabled installation.
-	if err := config.Register(&config.Option{Name: "Legacy SPN", Description: "Legacy SPN configuration regression fixture.", Key: "spn/enable", OptType: config.OptTypeBool, DefaultValue: true}); err != nil {
+	err = config.Register(&config.Option{Name: "Legacy SPN", Description: "Legacy SPN configuration regression fixture.", Key: "spn/enable", OptType: config.OptTypeBool, DefaultValue: true})
+	if err != nil {
 		fmt.Printf("register legacy setting: %s", err)
 		return
 	}
@@ -104,7 +107,8 @@ func TestMain(m *testing.M) {
 	// the shared account cache. This must not block the service startup path.
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		if _, err := GetUser(); err == nil {
+		_, err = GetUser()
+		if err == nil {
 			break
 		}
 		if time.Now().After(deadline) {

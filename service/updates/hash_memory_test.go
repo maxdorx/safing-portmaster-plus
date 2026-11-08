@@ -7,21 +7,27 @@ import (
 )
 
 func TestLocalArtifactHashingUsesBoundedMemory(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "core.bin")
 	f, err := os.Create(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := f.Truncate(8 << 20); err != nil {
+	err = f.Truncate(8 << 20)
+	if err != nil {
 		_ = f.Close()
 		t.Fatal(err)
 	}
-	if err := f.Close(); err != nil {
+	err = f.Close()
+	if err != nil {
 		t.Fatal(err)
 	}
 	result := testing.Benchmark(func(b *testing.B) {
+		b.Helper()
 		for b.Loop() {
-			if _, err := GetSHA256(path, ""); err != nil {
+			_, err := GetSHA256(path, "")
+			if err != nil {
 				b.Fatal(err)
 			}
 		}

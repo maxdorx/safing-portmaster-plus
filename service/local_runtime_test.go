@@ -11,8 +11,10 @@ import (
 	"github.com/safing/portmaster/spn/conf"
 )
 
+const serviceTestWindowsOS = "windows"
+
 func TestLocalServiceHasNoSPNRuntime(t *testing.T) { //nolint:paralleltest // construction initializes singleton modules.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == serviceTestWindowsOS {
 		t.Skip("service data-directory construction requires an administrative Windows token")
 	}
 	// Production modules intentionally allow one instance per process. Keep this
@@ -24,7 +26,8 @@ func TestLocalServiceHasNoSPNRuntime(t *testing.T) { //nolint:paralleltest // co
 		}
 		cmd := exec.Command(executable, "-test.run=^TestLocalServiceHasNoSPNRuntime$")
 		cmd.Env = append(os.Environ(), "PORTMASTER_SERVICE_CONSTRUCTION_TEST=1")
-		if output, err := cmd.CombinedOutput(); err != nil {
+		output, err := cmd.CombinedOutput()
+		if err != nil {
 			t.Fatalf("isolated service construction: %v\n%s", err, output)
 		}
 		return
@@ -49,18 +52,21 @@ func TestLocalServiceHasNoSPNRuntime(t *testing.T) { //nolint:paralleltest // co
 	if svc.Broadcasts() != nil {
 		t.Fatal("promotional broadcasts module was constructed")
 	}
-	if _, err := config.GetOption("spn/enable"); err == nil {
+	_, err = config.GetOption("spn/enable")
+	if err == nil {
 		t.Error("SPN activation setting registered")
 	}
 	for _, path := range []string{"spn/reinit", "spn/account/login", "spn/account/logout", "broadcasts/simulate"} {
-		if _, err := api.GetEndpointByPath(path); err == nil {
+		_, err = api.GetEndpointByPath(path)
+		if err == nil {
 			t.Errorf("unavailable runtime endpoint registered: %s", path)
 		}
 	}
 	// These are invoked by status/sleep/pause callers before SPN would start.
 	svc.SetSleep(true)
 	_ = svc.GetStates()
-	if stopped, err := svc.SPNGroup().IsStopped(); err != nil || !stopped {
+	stopped, err := svc.SPNGroup().IsStopped()
+	if err != nil || !stopped {
 		t.Errorf("SPN group not stopped: %v, %v", stopped, err)
 	}
 }
