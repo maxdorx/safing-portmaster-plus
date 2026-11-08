@@ -32,7 +32,7 @@ Independent final code review found no critical or important regressions. The fi
 
 Matching outputs are under `dist/portmaster-plus/windows_amd64/`: portmaster-core.exe, portmaster.exe, portmaster.zip, assets.zip, and SHA256SUMS. Use the official 2.2.8 signed driver and native DLL. Build instructions and backup/rollback guidance are in README.md and packaging/README.md. The release ZIP is a replacement bundle, not a signed installer.
 
-A combined replacement bundle is available at `dist/portmaster-plus-2.2.8-windows-amd64.zip`, containing only the four matching artifacts and SHA256SUMS. This is not an installer.
+A combined replacement bundle is available at `dist/portmaster-plus-2.2.8-windows-amd64.zip`, containing the four matching artifacts, SHA256SUMS, and the installation README. This is not an installer.
 
 ## Settings and scrolling correction
 

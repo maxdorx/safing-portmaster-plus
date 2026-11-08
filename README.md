@@ -14,7 +14,7 @@ Filter-list and GeoIP/intelligence updates remain automatic. News and promotiona
 
 ## Download
 
-Get the Windows x64 ZIP from [GitHub Releases](https://github.com/maxdorx/safing-portmaster-plus/releases/latest). It is a replacement bundle for an existing official **Portmaster 2.2.8** installation, not an installer. The ZIP contains `portmaster-core.exe`, `portmaster.exe`, `portmaster.zip`, `assets.zip`, and `SHA256SUMS`. Replace all four application files together.
+Get the Windows x64 ZIP from [GitHub Releases](https://github.com/maxdorx/safing-portmaster-plus/releases/latest). It is a replacement bundle for an existing official **Portmaster 2.2.8** installation, not an installer. The ZIP contains `portmaster-core.exe`, `portmaster.exe`, `portmaster.zip`, `assets.zip`, `SHA256SUMS`, and a copy of this README. Replace all four application files together.
 
 ## Build on Windows x64
 
