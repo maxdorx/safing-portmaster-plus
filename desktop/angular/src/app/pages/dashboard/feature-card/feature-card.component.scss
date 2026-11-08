@@ -29,32 +29,3 @@
     }
   }
 }
-
-.ribbon {
-  width: 90px;
-  height: 100%;
-  overflow: hidden;
-  position: absolute;
-  top: 0px;
-  right: 0px;
-  z-index: 100;
-}
-
-.ribbon__content {
-  left: -7px;
-  top: 25px;
-  -webkit-transform: rotate(45deg);
-  -ms-transform: rotate(45deg);
-  transform: rotate(45deg);
-  position: absolute;
-  display: block;
-  width: 125px;
-  padding: 2px 0;
-  text-shadow: 0 1px 0px rgba(0, 0, 0, .2);
-  text-transform: uppercase;
-  text-align: center;
-  border: 2px dotted #fff;
-  outline-color: #fff;
-  outline-width: 1px;
-  outline-style: solid;
-}

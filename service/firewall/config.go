@@ -53,7 +53,7 @@ func registerConfig() error {
 	err = config.Register(&config.Option{
 		Name:           "Permanent Verdicts",
 		Key:            CfgOptionPermanentVerdictsKey,
-		Description:    "The Portmaster's system integration intercepts every single packet. Usually the first packet is enough for the Portmaster to set the verdict for a connection - ie. to allow or deny it. Making these verdicts permanent means that the Portmaster will tell the system integration that is does not want to see any more packets of that single connection. This brings a major performance increase.",
+		Description:    "The Portmaster Plus's system integration intercepts every single packet. Usually the first packet is enough for the Portmaster Plus to set the verdict for a connection - ie. to allow or deny it. Making these verdicts permanent means that the Portmaster Plus will tell the system integration that is does not want to see any more packets of that single connection. This brings a major performance increase.",
 		OptType:        config.OptTypeBool,
 		ExpertiseLevel: config.ExpertiseLevelDeveloper,
 		ReleaseLevel:   config.ReleaseLevelExperimental,
@@ -71,7 +71,7 @@ func registerConfig() error {
 	err = config.Register(&config.Option{
 		Name:           "Seamless DNS Integration",
 		Key:            CfgOptionDNSQueryInterceptionKey,
-		Description:    "Intercept and redirect astray DNS queries to the Portmaster's internal DNS server. This enables seamless DNS integration without having to configure the system or other software. However, this may lead to compatibility issues with other software that attempts the same.",
+		Description:    "Intercept and redirect astray DNS queries to the Portmaster Plus's internal DNS server. This enables seamless DNS integration without having to configure the system or other software. However, this may lead to compatibility issues with other software that attempts the same.",
 		OptType:        config.OptTypeBool,
 		ExpertiseLevel: config.ExpertiseLevelDeveloper,
 		ReleaseLevel:   config.ReleaseLevelExperimental,
@@ -89,7 +89,7 @@ func registerConfig() error {
 	err = config.Register(&config.Option{
 		Name:           "Prompt Desktop Notifications",
 		Key:            CfgOptionAskWithSystemNotificationsKey,
-		Description:    `In addition to showing prompt notifications in the Portmaster App, also send them to the Desktop. This requires the Portmaster Notifier to be running. Requires Desktop Notifications to be enabled.`,
+		Description:    `In addition to showing prompt notifications in the Portmaster Plus App, also send them to the Desktop. This requires the Portmaster Plus Notifier to be running. Requires Desktop Notifications to be enabled.`,
 		OptType:        config.OptTypeBool,
 		ExpertiseLevel: config.ExpertiseLevelUser,
 		DefaultValue:   true,
@@ -110,7 +110,7 @@ func registerConfig() error {
 	err = config.Register(&config.Option{
 		Name:           "Prompt Timeout",
 		Key:            CfgOptionAskTimeoutKey,
-		Description:    "How long the Portmaster will wait for a reply to a prompt notification. Please note that Desktop Notifications might not respect this or have their own limits.",
+		Description:    "How long the Portmaster Plus will wait for a reply to a prompt notification. Please note that Desktop Notifications might not respect this or have their own limits.",
 		OptType:        config.OptTypeInt,
 		ExpertiseLevel: config.ExpertiseLevelUser,
 		DefaultValue:   60,
@@ -136,7 +136,6 @@ var (
 	devMode          config.BoolOption
 	apiListenAddress config.StringOption
 
-	tunnelEnabled     config.BoolOption
 	useCommunityNodes config.BoolOption
 
 	configReady = abool.New()
@@ -146,7 +145,6 @@ func getConfig() {
 	devMode = config.Concurrent.GetAsBool(core.CfgDevModeKey, false)
 	apiListenAddress = config.GetAsString(api.CfgDefaultListenAddressKey, "")
 
-	tunnelEnabled = config.Concurrent.GetAsBool(captain.CfgOptionEnableSPNKey, false)
 	useCommunityNodes = config.Concurrent.GetAsBool(captain.CfgOptionUseCommunityNodesKey, true)
 
 	configReady.Set()

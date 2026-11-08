@@ -55,48 +55,54 @@ func ensureQuotedServiceImagePath() error {
 	}
 	defer key.Close()
 
-	imagePath, _, err := key.GetStringValue("ImagePath")
+	imagePath, valType, err := key.GetStringValue("ImagePath")
 	if err != nil {
 		return fmt.Errorf("failed to read ImagePath: %w", err)
 	}
 
-	// Already correctly quoted — nothing to do.
-	if strings.HasPrefix(imagePath, `"`) {
+	// Already correct: quoted and stored as EXPAND_SZ so SCM expands %VAR% refs.
+	if strings.HasPrefix(imagePath, `"`) && valType == registry.EXPAND_SZ {
 		return nil
 	}
 
-	// Unquoted path detected. Locate the end of the executable (.exe boundary).
-	exeEnd := strings.Index(strings.ToLower(imagePath), ".exe")
-	if exeEnd < 0 {
-		return fmt.Errorf("ImagePath contains no .exe, skipping fix: %s", imagePath)
-	}
-	exeEnd += len(".exe")
-
-	exePath := imagePath[:exeEnd]
-	rest := strings.TrimSpace(imagePath[exeEnd:])
-
-	// Only fix the entry if it points to our own binary.
-	// This prevents accidental rewrites if the install location changes
-	// or if the registry entry has been reconfigured to point elsewhere.
-	selfPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("failed to resolve current executable path, skipping fix: %w", err)
-	}
-	if !strings.EqualFold(exePath, selfPath) {
-		return fmt.Errorf("ImagePath executable does not match current binary, skipping fix: imagePath=%s self=%s", exePath, selfPath)
-	}
-
 	var fixed string
-	if rest != "" {
-		fixed = `"` + exePath + `" ` + rest
+	if strings.HasPrefix(imagePath, `"`) {
+		// Quoted but wrong type (REG_SZ): rewrite with correct type only.
+		fixed = imagePath
 	} else {
-		fixed = `"` + exePath + `"`
+		// Unquoted path detected. Locate the end of the executable (.exe boundary).
+		exeEnd := strings.Index(strings.ToLower(imagePath), ".exe")
+		if exeEnd < 0 {
+			return fmt.Errorf("ImagePath contains no .exe, skipping fix: %s", imagePath)
+		}
+		exeEnd += len(".exe")
+
+		exePath := imagePath[:exeEnd]
+		rest := strings.TrimSpace(imagePath[exeEnd:])
+
+		// Only fix the entry if it points to our own binary.
+		// This prevents accidental rewrites if the install location changes
+		// or if the registry entry has been reconfigured to point elsewhere.
+		selfPath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("failed to resolve current executable path, skipping fix: %w", err)
+		}
+		if !strings.EqualFold(exePath, selfPath) {
+			return fmt.Errorf("ImagePath executable does not match current binary, skipping fix: imagePath=%s self=%s", exePath, selfPath)
+		}
+
+		if rest != "" {
+			fixed = `"` + exePath + `" ` + rest
+		} else {
+			fixed = `"` + exePath + `"`
+		}
 	}
 
-	if err := key.SetStringValue("ImagePath", fixed); err != nil {
+	// Always write as EXPAND_SZ: SCM only expands %VAR% refs for this type.
+	if err := key.SetExpandStringValue("ImagePath", fixed); err != nil {
 		return fmt.Errorf("failed to write fixed ImagePath: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "cwe428 check: fixed unquoted service ImagePath: old=%s new=%s\n", imagePath, fixed)
+	fmt.Fprintf(os.Stdout, "cwe428 check: fixed service ImagePath: old=%s new=%s\n", imagePath, fixed)
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -297,6 +298,20 @@ func GenerateIndexFromDir(sourceDir string, cfg IndexScanConfig) (*Index, error)
 
 // GetSHA256 gets the sha256sum of the given file and unpacks it if necessary.
 func GetSHA256(path string, unpackType string) (string, error) {
+	// Local application indexing includes large executables. Stream plain files
+	// so startup does not allocate an executable-sized buffer for each artifact.
+	if unpackType == "" {
+		file, err := os.Open(path)
+		if err != nil {
+			return "", err
+		}
+		defer file.Close()
+		hash := sha256.New()
+		if _, err := io.Copy(hash, file); err != nil {
+			return "", err
+		}
+		return hex.EncodeToString(hash.Sum(nil)), nil
+	}
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return "", err

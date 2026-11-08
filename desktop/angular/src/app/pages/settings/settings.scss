@@ -1,11 +1,14 @@
 .header-title {
   display: flex;
+  flex-direction: column;
   width: 100%;
   padding-left: 3rem;
   padding-right: 1.25rem;
   margin-bottom: 0.5rem;
-  align-items: center;
-  height: 3rem;
+  align-items: flex-start;
+  min-height: 3rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
   flex-shrink: 0;
 
   h1{

@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=Portmaster
+Name=Portmaster Plus
 GenericName=Application Firewall
 Exec={{exec}} --data=/opt/safing/portmaster --with-prompts --with-notifications 
 Icon={{icon}}

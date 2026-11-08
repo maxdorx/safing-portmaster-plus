@@ -16,7 +16,6 @@ export const connectionFieldTranslation: { [key: string]: string } = {
   encrypted: 'Encrypted',
   internal: 'Internal',
   asn: 'ASN',
-  tunneled: 'SPN Active',
   active: 'Active',
   allowed: 'Allowed',
   from: 'From',
@@ -57,7 +56,6 @@ export function mergeConditions(cond1: Condition, cond2: Condition): Condition {
       ]
     }
   })
-
 
   return result;
 }

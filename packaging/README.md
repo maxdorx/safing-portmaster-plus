@@ -1,3 +1,26 @@
+# Build Portmaster Plus on Windows
+
+From the repository root, with Go, Node/npm, Rust's MSVC toolchain, and Visual
+Studio C++ Build Tools (including a Windows SDK) installed, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging/windows/build-plus.ps1
+```
+
+This builds the core, shared Angular libraries, main UI archive, built-in UI, and
+desktop executable at the version declared in the project manifests. It writes
+`portmaster-core.exe`, `portmaster.zip`, `assets.zip`, `portmaster.exe`, and `SHA256SUMS` into
+`dist/portmaster-plus/windows_amd64`. It downloads dependencies as needed and
+does not install or start any service or driver, or modify the live firewall.
+The technical executable and archive names remain compatible with Portmaster.
+
+Use `-Stage Core`, `-Stage UI`, or `-Stage Desktop` to rebuild one stage. Desktop
+requires the built-in Angular UI from the UI stage. `-SkipNpmCi` reuses installed
+Node dependencies. The desktop stage uses Cargo directly, so Tauri CLI is not
+required. Native drivers, runtime DLLs, and intelligence data are separate
+inputs required for an installable bundle; this script does not produce or sign
+an installer.
+
 # Generate Windows installer
 
 ## Prerequisites

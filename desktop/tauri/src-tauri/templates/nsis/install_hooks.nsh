@@ -65,12 +65,12 @@ var dataDir
   ; Install the service:
   ; Parameters:
   ;   1. Service Name: "PortmasterCore"
-  ;   2. Display Name: "Portmaster Core"
+  ;   2. Display Name: "Portmaster Plus Core"
   ;   3. Service Type: "16" for SERVICE_WIN32_OWN_PROCESS
   ;   4. Start Type: "2" for SERVICE_AUTO_START
   ;   5. Binary Path: Executable with arguments.
   ;   6 & 7. Dependencies and account info (empty uses defaults).
-  SimpleSC::InstallService "PortmasterCore" "Portmaster Core" 16 2 '"$INSTDIR\portmaster-core.exe" --log-dir=%PROGRAMDATA%\Portmaster\logs' "" "" ""
+  SimpleSC::InstallService "PortmasterCore" "Portmaster Plus Core" 16 2 '"$INSTDIR\portmaster-core.exe" --log-dir=%PROGRAMDATA%\Portmaster\logs' "" "" ""
   Pop $0  ; returns error code (0 on success)
   ${If} $0 != 0
     SimpleSC::GetErrorMessage $0
@@ -79,7 +79,7 @@ var dataDir
     Abort
   ${EndIf}
 
-  SimpleSC::SetServiceDescription "PortmasterCore" "Portmaster Application Firewall - Core Service"
+  SimpleSC::SetServiceDescription "PortmasterCore" "Portmaster Plus Application Firewall - Core Service"
 
   ; 
   ; Auto start the UI
@@ -179,7 +179,7 @@ var dataDir
 
   ; remove the registry entry for the autostart
   DetailPrint "Removing registry entry for autostart"
-  DeleteRegKey HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+  DeleteRegValue HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Run" "Portmaster"
 
   ; delete data files
   Delete  /REBOOTOK "$COMMONPROGRAMDATA\Portmaster\databases\history.db"

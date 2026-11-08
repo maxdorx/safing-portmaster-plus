@@ -86,7 +86,6 @@
   </div>
 </div>
 
-
 <div class="nav-list">
   <!-- Network Activity -->
   <div sfng-tooltip="Network Activity" sfngTooltipDelay="1000" snfgTooltipPosition="right" routerLinkActive="active"
@@ -109,19 +108,6 @@
         d="M19 21h-3a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2Z" />
       <path fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M19 9h-3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2ZM5 3h3a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM5 15h3a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Z" />
-    </svg>
-  </div>
-
-  <!-- SPN -->
-  <div sfng-tooltip="Safing Privacy Network" sfngTooltipDelay="1000" snfgTooltipPosition="right"
-    routerLinkActive="active" routerLink="spn" class="link" sfngTipUpTrigger="navMap" sfngTipUpPassive>
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="spn" stroke="currentColor">
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-        <path
-          d="M6.488 15.581c.782.781.782 2.048 0 2.829-.782.781-2.049.781-2.83 0-.782-.781-.782-2.048 0-2.829.781-.781 2.048-.781 2.83 0M13.415 3.586c.782.781.782 2.048 0 2.829-.782.781-2.049.781-2.83 0-.782-.781-.782-2.048 0-2.829.781-.781 2.049-.781 2.83 0M20.343 15.58c.782.781.782 2.048 0 2.829-.782.781-2.049.781-2.83 0-.782-.781-.782-2.048 0-2.829.781-.781 2.048-.781 2.83 0" />
-        <path
-          d="M17.721 18.581C16.269 20.071 14.246 21 12 21c-1.146 0-2.231-.246-3.215-.68M4.293 15.152c-.56-1.999-.352-4.21.769-6.151.574-.995 1.334-1.814 2.205-2.449M13.975 5.254c2.017.512 3.834 1.799 4.957 3.743.569.985.899 2.041 1.018 3.103" />
-      </g>
     </svg>
   </div>
 
@@ -180,26 +166,23 @@
       <span class="text-secondary">
         Version: <span class="text-primary">{{ versions?.Core?.Version }} </span>
       </span>
-      <span class="text-secondary">
-        Release Channel:
-        <span class="uppercase text-primary"
-          [class.text-yellow-300]="versions?.Channel !== 'stable'">{{ versions?.Channel }}</span>
-      </span>
+      <span class="text-secondary">Portmaster Plus ? manual application updates</span>
     </div>
 
-    <app-menu-item (click)="downloadUpdates($event)">Check for Updates</app-menu-item>
-    <app-menu-item (click)="openChangeLog()">View Changelog</app-menu-item>
-    <app-menu-item (click)="reloadUI($event)">Reload UI</app-menu-item>
-    <app-menu-item *appExpertiseLevel="'developer'" (click)="showIntro()">
+    <app-menu-item (click)="downloadUpdates($event)" sfng-tooltip="Check for intelligence data updates">Update Intelligence Data</app-menu-item>
+    <app-menu-item (click)="openChangeLog()" sfng-tooltip="Browse Portmaster Plus release notes on GitHub">View Changelog</app-menu-item>
+    <hr/>
+    <app-menu-item (click)="reloadUI($event)" sfng-tooltip="Reload the Portmaster Plus UI without restarting the service">Reload UI</app-menu-item>
+    <app-menu-item *appExpertiseLevel="'developer'" (click)="showIntro()" sfng-tooltip="Replay the welcome introduction screens">
       Show Intro Screen
     </app-menu-item>
-    <app-menu-item (click)="reinitSPN($event)">Re-Initialize SPN</app-menu-item>
-    <app-menu-item (click)="logoutCompletely($event)">Logout Completely</app-menu-item>
-    <app-menu-item (click)="resetBroadcastState()">Reset Notifications State</app-menu-item>
-    <app-menu-item (click)="clearDNSCache($event)">Clear DNS Cache</app-menu-item>
-    <app-menu-item (click)="openDataDir($event)">Open Data Directory</app-menu-item>
-    <app-menu-item (click)="copyDebugInfo($event)">Copy Debug Info</app-menu-item>
-    <app-menu-item (click)="cleanupHistory($event)">Cleanup Network History</app-menu-item>
+    <hr/>
+    <app-menu-item (click)="resetBroadcastState()" sfng-tooltip="Clear the dismissed state so all notifications appear again">Reset Notifications State</app-menu-item>
+    <app-menu-item (click)="clearDNSCache($event)" sfng-tooltip="Flush the local DNS resolver cache">Clear DNS Cache</app-menu-item>
+    <app-menu-item (click)="cleanupHistory($event)" sfng-tooltip="Apply the history retention settings to remove outdated connection records">Cleanup Network History</app-menu-item>
+    <hr/>
+    <app-menu-item (click)="openDataDir($event)" sfng-tooltip="Open the folder where Portmaster Plus stores its data">Open Data Directory</app-menu-item>
+    <app-menu-item (click)="copyDebugInfo($event)" sfng-tooltip="Copy diagnostic information to the clipboard for support">Copy Debug Info</app-menu-item>
   </app-menu>
 
   <!-- Pause Menu -->
@@ -208,31 +191,27 @@
     #pauseMenuTrigger="cdkOverlayOrigin" [class.active]="pauseMenu.dropdown.isOpen">
 
     <svg viewBox="0 0 24 24" class="help" xmlns="http://www.w3.org/2000/svg">
-      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"> 
-        <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"></path> 
-        <path d="M14 9L14 15"></path> 
-        <path d="M10 9L10 15"></path> 
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"></path>
+        <path d="M14 9L14 15"></path>
+        <path d="M10 9L10 15"></path>
       </g>
     </svg>
 
   </div>
   <app-menu #pauseMenu offsetY="0" offsetX="10" overlayClass="rounded-t">
       <div *ngIf="isPaused">
-        <div class="flex flex-col p-4 text-xxs">            
+        <div class="flex flex-col p-4 text-xxs">
           <span class="text-secondary">
             <span class="text-secondary">{{ pauseInfo }} </span>
           </span>
           <span class="text-secondary" *ngIf="pauseInfoTillTime">
             {{ pauseInfoTillTime }}
-          </span>            
+          </span>
         </div>
         <hr/>
       </div>
 
-      <!-- we show 'Pause SPN...' items even when isPausedSPN to allow pause time modification-->
-      <app-menu-item (click)="pauseSPN($event, 60*5)" *ngIf="spnEnabled || isPausedSPN" [disabled]="isPausedInterception">Pause SPN for 5 minutes</app-menu-item>
-      <app-menu-item (click)="pauseSPN($event, 60*15)" *ngIf="spnEnabled || isPausedSPN" [disabled]="isPausedInterception">Pause SPN for 15 minutes</app-menu-item>
-      <app-menu-item (click)="pauseSPN($event, 60*60)" *ngIf="spnEnabled || isPausedSPN" [disabled]="isPausedInterception">Pause SPN for 1 hour</app-menu-item>
       <hr/>
       <app-menu-item (click)="pause($event, 60*5)">Pause for 5 minutes</app-menu-item>
       <app-menu-item (click)="pause($event, 60*15)">Pause for 15 minutes</app-menu-item>

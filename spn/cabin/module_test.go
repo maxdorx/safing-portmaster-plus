@@ -32,6 +32,7 @@ func (stub *testInstance) DataDir() string                    { return _dataDir 
 var _dataDir string
 
 func runTest(m *testing.M) error {
+	conf.EnablePublicHub(true)
 	api.SetDefaultAPIListenAddress("0.0.0.0:8080")
 	var err error
 	// Create a temporary directory for the data
@@ -92,8 +93,6 @@ func runTest(m *testing.M) error {
 	if err != nil {
 		return fmt.Errorf("failed to start cabin module: %w", err)
 	}
-	conf.EnablePublicHub(true)
-
 	m.Run()
 	return nil
 }

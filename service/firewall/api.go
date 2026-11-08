@@ -21,10 +21,10 @@ import (
 const (
 	deniedMsgUnidentified = `%wFailed to identify the requesting process. Reload to try again.`
 
-	deniedMsgSystem = `%wSystem access to the Portmaster API is not permitted.
+	deniedMsgSystem = `%wSystem access to the Portmaster Plus API is not permitted.
 You can enable the Development Mode to disable API authentication for development purposes.`
 
-	deniedMsgUnauthorized = `%wThe requesting process is not authorized to access the Portmaster API.
+	deniedMsgUnauthorized = `%wThe requesting process is not authorized to access the Portmaster Plus API.
 Checked process paths:
 %s
 

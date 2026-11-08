@@ -74,7 +74,6 @@
     </ng-container>
   </ng-container>
 
-
   <!-- The combinded "more" drop-down that should look like a select component -->
   <ng-template #selectTemplate>
     <button class="sfng-select" [class.active]="customDropdown.isOpen">
@@ -115,7 +114,6 @@
       </div>
     </ng-container>
   </sfng-dropdown>
-
 
   <div class="flex-grow"></div>
 
@@ -209,27 +207,14 @@
         <span class="text-primary" *ngIf="key === 'country' && !!data[key]"
           [appCountryFlags]="data[key]">{{ data[key] || 'N/A' }}</span>
 
-
         <!-- Profile specific column rendering -->
         <span *ngIf="key === 'profile' && !!data.__profile" class="flex flex-row items-center gap-2">
           <app-icon [profile]="data.__profile"></app-icon>
           <span>{{ data.__profile.Name }}</span>
         </span>
 
-        <!-- SPN Pin specific column rendering -->
-        <span *ngIf="key === 'exit_node' && !!data.__exitNode" class="flex flex-row items-center gap-2">
-          <span class="text-secondary text-xxs">
-            (
-            <span class="text-primary"
-              *ngIf="(data.__exitNode.EntityV4 || data.__exitNode.EntityV6)?.Country as country"
-              [appCountryFlags]="country"></span>
-            )
-          </span>
-          <span>{{ data.__exitNode.Name }}</span>
-        </span>
-
         <!-- everything else -->
-        <span style="direction: rtl" *ngIf="key !== 'domain' && key !== 'profile' && key !== 'exit_node'"
+        <span style="direction: rtl" *ngIf="key !== 'domain' && key !== 'profile'"
           class="overflow-hidden text-primary overflow-ellipsis">
           <span style="direction: ltr; unicode-bidi: bidi-override;">
             {{ data[key] || 'N/A' }}
@@ -281,18 +266,18 @@
 
       <!-- Auto-Reload Interval selector -->
       <app-menu-trigger [menu]="autoReloadMenu" useContent="true"
-        class="text-secondary hover:text-primary flex !m-0" 
+        class="text-secondary hover:text-primary flex !m-0"
         >
         <div class="flex flex-row items-center">
           <!-- Auto-Reload Interval countdown--->
           <span *ngIf="!!autoReloadIntervalName" class="pr-3 text-xxs text-secondary" style="opacity: 0.5;" >
-            {{autoReloadIntervalName}} 
-            
+            {{autoReloadIntervalName}}
+
             <span *ngIf="(autoReloadInterval$ | async) as interval">
               <span *ngIf="interval > 0 && interval <= 30">
                 (in {{interval}} sec)
               </span>
-            </span>            
+            </span>
           </span>
 
           <!-- Last Reload Time -->
@@ -303,8 +288,8 @@
           Last Reload: {{ lastReload | timeAgo:(lastReloadTicker|async) }}
           </span>
 
-          <svg xmlns="http://www.w3.org/2000/svg" 
-            class="w-4 h-4"          
+          <svg xmlns="http://www.w3.org/2000/svg"
+            class="w-4 h-4"
             fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -370,7 +355,6 @@
     </sfng-accordion-group>
   </ng-template>
 </sfng-pagination>
-
 
 <ng-template #loadingTemplate>
   <div class="flex flex-col items-center justify-center flex-grow gap-2 text-tertiary">

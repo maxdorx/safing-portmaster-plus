@@ -16,7 +16,6 @@
     <app-expertise></app-expertise>
   </div>
 
-
   <!-- Application Header -->
   <div class="relative px-12 transition-all duration-200" [class.p-4]="!collapseHeader">
     <div class="flex relative z-10 flex-row items-center w-full" [class.py-8]="!collapseHeader">
@@ -56,7 +55,7 @@
             </ng-container>
             <ng-container *ngIf="!historyAvailableSince">
               <span class="text-opacity-75 text-primary"
-                sfng-tooltip="Network History feature is available in Portmaster Plus">None</span>
+                >None</span>
             </ng-container>
           </div>
         </div>
@@ -67,14 +66,8 @@
           <app-qs-internet [settings]="profileSettings" (save)="saveSetting($event)">
           </app-qs-internet>
 
-          <app-qs-history [canUse]="canUseHistory" [settings]="profileSettings" (save)="saveSetting($event)">
+          <app-qs-history [settings]="profileSettings" (save)="saveSetting($event)">
           </app-qs-history>
-
-          <app-qs-use-spn [canUse]="canUseSPN" [settings]="profileSettings" (save)="saveSetting($event)">
-          </app-qs-use-spn>
-
-          <app-qs-select-exit [canUse]="canUseSPN" [settings]="profileSettings" (save)="saveSetting($event)">
-          </app-qs-select-exit>
 
           <app-qs-use-splittun [settings]="profileSettings" (save)="saveSetting($event)">
           </app-qs-use-splittun>
@@ -122,16 +115,10 @@
             'h-20 sfng-lg:w-32 sfng-lg:h-24': !collapseHeader
           }"
           class="flex flex-col justify-center items-center px-4 py-1 w-24 bg-gray-300 bg-opacity-75 rounded border border-gray-300 shadow transition-all duration-200">
-          <h2 *ngIf="canViewBW; else: cannotViewBW"
+          <h2
             class="p-0 m-0 text-lg whitespace-nowrap sfng-lg:text-xl text-primary">
             {{ stats.bytes_received | bytes }}
           </h2>
-          <ng-template #cannotViewBW>
-            <span routerLink="/dashboard"
-              class="p-0 pb-2.5 m-0 text-opacity-50 whitespace-nowrap text-xxs sfng-lg:text-xs text-tertiary hover:underline">
-              Available in Plus
-            </span>
-          </ng-template>
           <span class="text-secondary">Received</span>
         </div>
 
@@ -139,7 +126,7 @@
             'h-20 sfng-lg:w-32 sfng-lg:h-24': !collapseHeader
           }"
           class="flex flex-col justify-center items-center px-4 py-1 w-24 bg-gray-300 bg-opacity-75 rounded border border-gray-300 shadow transition-all duration-200">
-          <h2 *ngIf="canViewBW; else: cannotViewBW"
+          <h2
             class="p-0 m-0 text-lg whitespace-nowrap sfng-lg:text-xl text-primary">
             {{ stats.bytes_sent | bytes }}
           </h2>

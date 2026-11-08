@@ -18,8 +18,8 @@ func (i *Interoperability) registerAPIEndpoints() error {
 		Read:        api.PermitAnyone,
 		Write:       api.PermitAnyone,
 		ActionFunc:  i.handlePing,
-		Name:        "Interoperability: Ping Portmaster",
-		Description: "Ping the Portmaster Core Service for interoperability checks.",
+		Name:        "Interoperability: Ping Portmaster Plus",
+		Description: "Ping the Portmaster Plus Core Service for interoperability checks.",
 	}); err != nil {
 		return err
 	}

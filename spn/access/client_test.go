@@ -3,6 +3,8 @@ package access
 import (
 	"os"
 	"testing"
+
+	"github.com/safing/portmaster/spn/conf"
 )
 
 var (
@@ -11,6 +13,9 @@ var (
 )
 
 func TestClient(t *testing.T) {
+	if conf.Integrated() {
+		t.Skip("SPN accounts are unavailable in the local application")
+	}
 	// Skip test in CI.
 	if testing.Short() {
 		t.Skip()

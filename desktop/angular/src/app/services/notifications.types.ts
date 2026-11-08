@@ -20,7 +20,7 @@ export interface BaseAction {
   // - "": Action is always visible.
   // - "detailed": Action is only visible in the detailed view of a notification.
   // - "in-app-only": Visible only in the UI app, never on the system level (if ShowOnSystem is true).
-  Visibility: string; 
+  Visibility: string;
 }
 
 export interface GenericAction extends BaseAction {
@@ -56,7 +56,7 @@ export const PageIDs = {
   'support': '/support',
   'settings': '/settings',
   'apps': '/app/overview',
-  'spn': '/spn',
+  'spn': '/dashboard',
 }
 
 export interface OpenSettingAction extends BaseAction {

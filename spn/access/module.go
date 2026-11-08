@@ -56,6 +56,7 @@ var (
 	ErrInvalidCredentials   = errors.New("invalid credentials")
 	ErrMayNotUseSPN         = errors.New("may not use SPN")
 	ErrNotLoggedIn          = errors.New("not logged in")
+	ErrSPNUnavailable       = errors.New("SPN accounts and tunneling are unavailable in Portmaster Plus")
 )
 
 func prep() error {
@@ -71,51 +72,21 @@ func prep() error {
 }
 
 func start() error {
-	// Initialize zones.
-	if err := InitializeZones(); err != nil {
-		return err
-	}
-
 	if conf.Integrated() {
-		// Add config listener to enable/disable SPN.
-		module.instance.Config().EventConfigChange.AddCallback("spn enable check", func(wc *mgr.WorkerCtx, s struct{}) (bool, error) {
-			// Do not do anything when we are shutting down.
-			if module.instance.IsShuttingDown() {
-				return true, nil
-			}
-
-			enabled := config.GetAsBool("spn/enable", false)
-			if enabled() {
-				log.Info("spn: starting SPN")
-				module.mgr.Go("ensure SPN is started", module.instance.SPNGroup().EnsureStartedWorker)
-			} else {
-				log.Info("spn: stopping SPN")
-				module.mgr.Go("ensure SPN is stopped", module.instance.SPNGroup().EnsureStoppedWorker)
-			}
-			return false, nil
-		})
-
-		// Load tokens from database.
-		loadTokens()
-
-		// Advertise the features this build enables locally, so the UI unlocks
-		// them. This runs off the startup path on purpose: the firewall holds
-		// packets until the service is up, so nothing here may block start().
+		// Publish local feature gates off the firewall startup path. Do not load
+		// tokens, schedule account workers, or observe persisted SPN settings.
 		module.mgr.Go("apply local feature plan", func(_ *mgr.WorkerCtx) error {
 			if err := ensureLocalFeaturePlan(); err != nil {
-				log.Warningf("spn/access: failed to apply local feature plan: %s", err)
+				log.Warningf("access: failed to apply local feature plan: %s", err)
 			}
 			return nil
 		})
+		return nil
+	}
 
-		// Check if we need to enable SPN now.
-		enabled := config.GetAsBool("spn/enable", false)
-		if enabled() {
-			module.mgr.Go("ensure SPN is started", module.instance.SPNGroup().EnsureStartedWorker)
-		}
-
-		// Register new task.
-		module.updateAccountWorkerMgr.Delay(1 * time.Minute)
+	// Initialize zones.
+	if err := InitializeZones(); err != nil {
+		return err
 	}
 
 	return nil
@@ -123,14 +94,9 @@ func start() error {
 
 func stop() error {
 	if conf.Integrated() {
-		// Make sure SPN is stopped before we proceed.
-		err := module.mgr.Do("ensure SPN is shut down", module.instance.SPNGroup().EnsureStoppedWorker)
-		if err != nil {
-			log.Errorf("access: stop SPN: %s", err)
-		}
-
-		// Store tokens to database.
-		storeTokens()
+		// Preserve stored account credentials and tokens without loading or
+		// rewriting them. There is no integrated SPN runtime to stop.
+		return nil
 	}
 
 	// Reset zones.
@@ -141,6 +107,9 @@ func stop() error {
 
 // UpdateAccount updates the user account and fetches new tokens, if needed.
 func UpdateAccount(_ *mgr.WorkerCtx) error {
+	if conf.Integrated() {
+		return ErrSPNUnavailable
+	}
 	// Schedule next call - this will change if other conditions are met bellow.
 	module.updateAccountWorkerMgr.Delay(24 * time.Hour)
 
@@ -193,6 +162,9 @@ func UpdateAccount(_ *mgr.WorkerCtx) error {
 }
 
 func enableSPN() {
+	if conf.Integrated() {
+		return
+	}
 	err := config.SetConfigOption("spn/enable", true)
 	if err != nil {
 		log.Warningf("spn/access: failed to enable the SPN during login: %s", err)
@@ -212,6 +184,9 @@ func TokenIssuerIsFailing() bool {
 }
 
 func tokenIssuerFailed() {
+	if conf.Integrated() {
+		return
+	}
 	if !tokenIssuerIsFailing.SetToIf(false, true) {
 		return
 	}
@@ -221,6 +196,9 @@ func tokenIssuerFailed() {
 
 // IsLoggedIn returns whether a User is currently logged in.
 func (user *UserRecord) IsLoggedIn() bool {
+	if conf.Integrated() {
+		return false
+	}
 	user.Lock()
 	defer user.Unlock()
 
@@ -237,7 +215,7 @@ func (user *UserRecord) MayUseTheSPN() bool {
 	user.Lock()
 	defer user.Unlock()
 
-	return user.User.MayUseSPN()
+	return user.MayUseSPN()
 }
 
 // New returns a new Access module.
@@ -251,8 +229,10 @@ func New(instance instance) (*Access, error) {
 		mgr:      m,
 		instance: instance,
 
-		EventAccountUpdate:     mgr.NewEventMgr[struct{}](AccountUpdateEvent, m),
-		updateAccountWorkerMgr: m.NewWorkerMgr("update account", UpdateAccount, nil),
+		EventAccountUpdate: mgr.NewEventMgr[struct{}](AccountUpdateEvent, m),
+	}
+	if !conf.Integrated() {
+		module.updateAccountWorkerMgr = m.NewWorkerMgr("update account", UpdateAccount, nil)
 	}
 
 	if err := prep(); err != nil {

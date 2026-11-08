@@ -14,6 +14,9 @@ import (
 )
 
 func (u *Updater) upgrade(downloader *Downloader, ignoreVersion bool) error {
+	if u.cfg.ManualOnly {
+		return ErrManualUpdatesOnly
+	}
 	// Lock index for the upgrade.
 	u.indexLock.Lock()
 	defer u.indexLock.Unlock()

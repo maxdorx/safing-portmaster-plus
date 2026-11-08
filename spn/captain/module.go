@@ -57,11 +57,17 @@ func (c *Captain) States() *mgr.StateMgr {
 
 // Start starts the module.
 func (c *Captain) Start() error {
+	if conf.Integrated() {
+		return nil
+	}
 	return start()
 }
 
 // Stop stops the module.
 func (c *Captain) Stop() error {
+	if conf.Integrated() {
+		return nil
+	}
 	return stop()
 }
 
@@ -73,6 +79,11 @@ func (c *Captain) SetSleep(enabled bool) {
 }
 
 func (c *Captain) prep() error {
+	if conf.Integrated() {
+		// Preserve the disabled status record and event hooks used by local
+		// modules, without SPN settings, mutating endpoints, or network workers.
+		return registerSPNStatusProvider()
+	}
 	// Check if we can parse the bootstrap hub flag.
 	if err := prepBootstrapHubFlag(); err != nil {
 		return err
@@ -243,9 +254,10 @@ func New(instance instance) (*Captain, error) {
 		states:            mgr.NewStateMgr(m),
 		EventSPNConnected: mgr.NewEventMgr[struct{}](SPNConnectedEvent, m),
 		HookSPNConnecting: mgr.NewHookMgr[hub.Announcement](SPNConnectingHook, m),
-
-		publicIdentityUpdater: m.NewWorkerMgr("maintain public identity", maintainPublicIdentity, nil),
-		statusUpdater:         m.NewWorkerMgr("maintain public status", maintainPublicStatus, nil),
+	}
+	if !conf.Integrated() {
+		module.publicIdentityUpdater = m.NewWorkerMgr("maintain public identity", maintainPublicIdentity, nil)
+		module.statusUpdater = m.NewWorkerMgr("maintain public status", maintainPublicStatus, nil)
 	}
 
 	if err := module.prep(); err != nil {

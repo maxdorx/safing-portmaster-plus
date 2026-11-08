@@ -13,11 +13,6 @@ import (
 func TestIdentity(t *testing.T) {
 	t.Parallel()
 
-	// Register config options for public hub.
-	if err := prepPublicHubConfig(); err != nil {
-		t.Fatal(err)
-	}
-
 	// Create new identity.
 	identityTestKey := "core:spn/public/identity-test"
 	id, err := CreateIdentity(module.m.Ctx(), conf.MainMapName)

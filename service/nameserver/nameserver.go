@@ -252,10 +252,11 @@ func handleRequest(ctx context.Context, w dns.ResponseWriter, request *dns.Msg) 
 	switch conn.Verdict { //nolint:exhaustive // Only checking for specific values.
 	case network.VerdictBlock, network.VerdictDrop, network.VerdictFailed:
 		tracer.Infof(
-			"nameserver: returning %s response for %s to %s",
+			"nameserver: returning %s response for %s to %s: %s",
 			conn.VerdictVerb(),
 			q.ID(),
 			conn.Process(),
+			conn.Reason.Msg,
 		)
 		return reply(conn, conn)
 	}
@@ -332,10 +333,11 @@ func handleRequest(ctx context.Context, w dns.ResponseWriter, request *dns.Msg) 
 	switch conn.Verdict { //nolint:exhaustive // Only checking for specific values.
 	case network.VerdictBlock, network.VerdictDrop, network.VerdictFailed:
 		tracer.Infof(
-			"nameserver: returning %s response for %s to %s",
+			"nameserver: returning %s response for %s to %s: %s",
 			conn.VerdictVerb(),
 			q.ID(),
 			conn.Process(),
+			conn.Reason.Msg,
 		)
 		return reply(conn, conn, rrCache)
 	}

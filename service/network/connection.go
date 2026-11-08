@@ -429,16 +429,25 @@ var tooOldTimestamp = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
 // NewIncompleteConnection creates a new incomplete connection with only minimal information.
 func NewIncompleteConnection(pkt packet.Packet) *Connection {
 	info := pkt.Info()
+	connID := pkt.GetConnectionID()
+
+	// Adopt the process attribution that an info-only packet reported earlier.
+	pid := info.PID
+	if pid == process.UndefinedProcessID {
+		if hintedPID, ok := takePIDHint(connID); ok {
+			pid = hintedPID
+		}
+	}
 
 	// Create new connection object.
 	// We do not yet know the direction of the connection for sure, so we can only set minimal information.
 	conn := &Connection{
-		ID:           pkt.GetConnectionID(),
+		ID:           connID,
 		Type:         IPConnection,
 		IPVersion:    info.Version,
 		IPProtocol:   info.Protocol,
 		Started:      info.SeenAt.Unix(),
-		PID:          info.PID,
+		PID:          pid,
 		Inbound:      info.Inbound,
 		dataComplete: abool.NewBool(false),
 	}
@@ -550,8 +559,8 @@ func (conn *Connection) GatherConnectionInfo(pkt packet.Packet) (err error) {
 	}
 
 	// Find domain and DNS context of entity.
-	if conn.Entity.Domain == "" && conn.process.Profile() != nil {
-		profileScope := conn.process.Profile().LocalProfile().ID
+	if localProfile := conn.process.Profile().LocalProfile(); conn.Entity.Domain == "" && localProfile != nil {
+		profileScope := localProfile.ID
 		// check if we can find a domain for that IP
 		ipinfo, err := resolver.GetIPInfo(profileScope, pkt.Info().RemoteIP().String())
 		if err != nil {
@@ -614,8 +623,13 @@ func (conn *Connection) GatherConnectionInfo(pkt packet.Packet) (err error) {
 		// We need a full packet.
 	case conn.process == nil:
 		// We need a process.
-	case conn.process.Profile() == nil:
-		// We need a profile.
+
+	// case conn.process.Profile() == nil:
+	//		Do not wait for a profile: the profile lookup is done once per
+	// 		connection and is not retried, so waiting would leave the connection
+	// 		without a verdict forever (#2275). A missing profile is denied by
+	// 		the filter ("unknown process or profile"), same as for DNS requests.
+
 	case conn.Entity == nil:
 		// We need an entity.
 	default:

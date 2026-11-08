@@ -63,16 +63,19 @@ func openSQLite(name, location string, printStmts bool) (*SQLite, error) {
 
 	// Open database file.
 	// Default settings:
-	// _time_format = YYYY-MM-DDTHH:MM:SS.SSS
 	// _txlock = deferred
-	db, err := sql.Open("sqlite", dbFile)
+
+	// _time_format=sqlite stores timestamps as "YYYY-MM-DD HH:MM:SS.SSS±HH:MM", avoiding timezone abbreviations that break round-trip parsing (e.g. "UTC+2").
+	dbFileDSN := dbFile + "?_time_format=sqlite"
+
+	db, err := sql.Open("sqlite", dbFileDSN)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 
 	// Enable statement printing.
 	if printStmts {
-		db = sqldblogger.OpenDriver(dbFile, db.Driver(), &statementLogger{})
+		db = sqldblogger.OpenDriver(dbFileDSN, db.Driver(), &statementLogger{})
 	}
 
 	// Set other settings.

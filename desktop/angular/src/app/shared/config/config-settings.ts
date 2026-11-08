@@ -45,6 +45,7 @@ import {
 } from './import-dialog/import-dialog.component';
 
 import { subsystems, SubsystemWithExpertise } from './subsystems'
+import { isLocalSetting } from '../local-settings';
 
 interface Category {
   name: string;
@@ -113,7 +114,7 @@ export class ConfigSettingsViewComponent
 
   @Input()
   set availableSettings(v: Setting[]) {
-    this.onSettingsChange.next(v);
+    this.onSettingsChange.next(v.filter(isLocalSetting));
   }
 
   @Input()

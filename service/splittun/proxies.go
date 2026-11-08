@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"runtime"
 	"sync"
 
 	"github.com/safing/portmaster/service/mgr"
@@ -72,6 +73,16 @@ func startProxies(mgr *mgr.Manager) error {
 
 	_ = stopProxies()
 
+	// On Linux, traffic reaches the proxy via iptables DNAT to 127.0.0.17 / ::1 (see nfqueue_linux.go).
+	// A wildcard-bound UDP socket may reply from a different source IP (e.g. 127.0.0.1), which breaks
+	// conntrack's reverse NAT, so bind UDP to the exact DNAT target. On Windows the kext rewrites
+	// packets itself, so the wildcard address works. TCP is unaffected.
+	udp4Addr, udp6Addr := "0.0.0.0", "::"
+	if runtime.GOOS == "linux" {
+		udp4Addr = "127.0.0.17"
+		udp6Addr = "::1"
+	}
+
 	// Ensure any partially-started proxies are shut down if we return an error.
 	var startErr error
 	defer func() {
@@ -97,7 +108,7 @@ func startProxies(mgr *mgr.Manager) error {
 		startErr = fmt.Errorf("failed to start TCPv4 proxy: %w", err)
 		return startErr
 	}
-	udp4, err = proxy.NewUDPProxy(fmt.Sprintf("0.0.0.0:%d", SplitTunPort), "udp4", proxyDecider, mgr, "UDP-IPv4-proxy")
+	udp4, err = proxy.NewUDPProxy(fmt.Sprintf("%s:%d", udp4Addr, SplitTunPort), "udp4", proxyDecider, mgr, "UDP-IPv4-proxy")
 	if err != nil {
 		startErr = fmt.Errorf("failed to start UDPv4 proxy: %w", err)
 		return startErr
@@ -109,7 +120,7 @@ func startProxies(mgr *mgr.Manager) error {
 			startErr = fmt.Errorf("failed to start TCPv6 proxy: %w", err)
 			return startErr
 		}
-		udp6, err = proxy.NewUDPProxy(fmt.Sprintf("[::]:%d", SplitTunPort), "udp6", proxyDecider, mgr, "UDP-IPv6-proxy")
+		udp6, err = proxy.NewUDPProxy(fmt.Sprintf("[%s]:%d", udp6Addr, SplitTunPort), "udp6", proxyDecider, mgr, "UDP-IPv6-proxy")
 		if err != nil {
 			startErr = fmt.Errorf("failed to start UDPv6 proxy: %w", err)
 			return startErr

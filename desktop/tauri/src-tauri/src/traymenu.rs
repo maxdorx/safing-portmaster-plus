@@ -1,8 +1,6 @@
-use std::ops::Deref;
-use std::sync::atomic::AtomicBool;
-use std::sync::RwLock;
-use std::{sync::atomic::Ordering};
 use chrono::{DateTime, Local};
+use std::ops::Deref;
+use std::sync::RwLock;
 
 use log::{debug, error};
 use tauri::{
@@ -17,12 +15,8 @@ use crate::config;
 use crate::{
     portapi::{
         client::PortAPI,
-        message::{ParseError},
-        models::{
-            config::BooleanValue,
-            spn::SPNStatus,
-            system_status_types::{self, SystemStatus},
-        },
+        message::ParseError,
+        models::system_status_types::{self, SystemStatus},
         types::{Request, Response},
     },
     portmaster::PortmasterExt,
@@ -32,8 +26,6 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 pub type AppIcon = TrayIcon<Wry>;
 pub type ContextMenu = Menu<Wry>;
-
-static SPN_STATE: AtomicBool = AtomicBool::new(false);
 
 #[derive(Copy, Clone)]
 enum IconColor {
@@ -47,8 +39,6 @@ static CURRENT_ICON_COLOR: RwLock<IconColor> = RwLock::new(IconColor::Red);
 pub static USER_THEME: RwLock<dark_light::Mode> = RwLock::new(dark_light::Mode::Unspecified);
 const OPEN_KEY: &str = "open";
 const EXIT_UI_KEY: &str = "exit_ui";
-const SPN_STATUS_KEY: &str = "spn_status";
-const SPN_BUTTON_KEY: &str = "spn_toggle";
 const GLOBAL_STATUS_KEY: &str = "global_status";
 const SHUTDOWN_KEY: &str = "shutdown";
 const SYSTEM_THEME_KEY: &str = "system_theme";
@@ -60,9 +50,6 @@ const FORCE_SHOW_KEY: &str = "force-show";
 const PM_TRAY_ICON_ID: &str = "pm_icon";
 const PM_TRAY_MENU_ID: &str = "pm_tray_menu";
 
-const PAUSE_SPN_5_KEY: &str = "pause_spn_5";
-const PAUSE_SPN_15_KEY: &str = "pause_spn_15";
-const PAUSE_SPN_60_KEY: &str = "pause_spn_60";
 const PAUSE_PM_5_KEY: &str = "pause_pm_5";
 const PAUSE_PM_15_KEY: &str = "pause_pm_15";
 const PAUSE_PM_60_KEY: &str = "pause_pm_60";
@@ -72,11 +59,20 @@ const PAUSE_INFO_TIME_KEY: &str = "pause_info_time";
 
 // Icons
 
-fn get_theme_mode() -> dark_light::Mode {
-    if let Ok(value) = USER_THEME.read() {
-        return *value.deref();
+/// Returns the icon theme to use: the user's choice, or the detected OS
+/// theme when the user chose "System".
+pub(crate) fn get_theme_mode() -> dark_light::Mode {
+    let mode = if let Ok(value) = USER_THEME.read() {
+        *value.deref()
+    } else {
+        dark_light::Mode::Unspecified
+    };
+
+    // "System" is stored as Unspecified: detect the current OS theme.
+    if mode == dark_light::Mode::Unspecified {
+        return dark_light::detect().unwrap_or(dark_light::Mode::Dark);
     }
-    dark_light::detect().unwrap_or(dark_light::Mode::Unspecified)
+    mode
 }
 
 fn get_green_icon() -> &'static [u8] {
@@ -135,14 +131,14 @@ fn get_icon(icon: IconColor) -> &'static [u8] {
 fn build_tray_menu(
     app: &tauri::AppHandle,
     status: &str,
-    spn_status_text: &str,
     pause_info: &system_status_types::PauseInfo,
 ) -> core::result::Result<ContextMenu, Box<dyn std::error::Error>> {
     load_theme(app);
 
     let open_btn = MenuItemBuilder::with_id(OPEN_KEY, "Open App").build(app)?;
     let exit_ui_btn = MenuItemBuilder::with_id(EXIT_UI_KEY, "Exit UI").build(app)?;
-    let shutdown_btn = MenuItemBuilder::with_id(SHUTDOWN_KEY, "Shut Down Portmaster").build(app)?;
+    let shutdown_btn =
+        MenuItemBuilder::with_id(SHUTDOWN_KEY, "Shut Down Portmaster Plus").build(app)?;
 
     // Global status
     let global_status_text = if pause_info.interception {
@@ -156,46 +152,39 @@ fn build_tray_menu(
         .unwrap();
 
     // Pause items
-    let (pause_status_item, pause_status_time_item, resume_item) = if pause_info.interception || pause_info.spn {
-        let status_text = match (pause_info.interception, pause_info.spn) {
-            (true, true) => "Portmaster and SPN are paused",
-            (true, false) => "Portmaster is paused", 
-            (false, true) => "SPN is paused",
-            _ => unreachable!(), // We already checked at least one is true
-        };
-        let status_item = MenuItemBuilder::with_id(PAUSE_INFO_KEY, status_text).enabled(false).build(app).ok();
-        
-        let time_item = if let Ok(resume_time) = DateTime::parse_from_rfc3339(&pause_info.till_time) {
-            let resume_time_local = resume_time.with_timezone(&Local);            
+    let (pause_status_item, pause_status_time_item, resume_item) = if pause_info.interception {
+        let status_text = "Portmaster Plus is paused";
+        let status_item = MenuItemBuilder::with_id(PAUSE_INFO_KEY, status_text)
+            .enabled(false)
+            .build(app)
+            .ok();
+
+        let time_item = if let Ok(resume_time) = DateTime::parse_from_rfc3339(&pause_info.till_time)
+        {
+            let resume_time_local = resume_time.with_timezone(&Local);
             if resume_time_local > Local::now() {
                 let formatted_time = resume_time_local.format("%H:%M:%S").to_string();
-                MenuItemBuilder::with_id(PAUSE_INFO_TIME_KEY, format!("Auto-resume at {}", formatted_time)).enabled(false).build(app).ok()
+                MenuItemBuilder::with_id(
+                    PAUSE_INFO_TIME_KEY,
+                    format!("Auto-resume at {}", formatted_time),
+                )
+                .enabled(false)
+                .build(app)
+                .ok()
             } else {
                 None
             }
         } else {
             None
         };
-        
-        let resume_item = MenuItemBuilder::with_id(RESUME_KEY, "Resume now").build(app).ok();
+
+        let resume_item = MenuItemBuilder::with_id(RESUME_KEY, "Resume now")
+            .build(app)
+            .ok();
         (status_item, time_item, resume_item)
     } else {
         (None, None, None)
     };
-
-    // SPN button    
-    let (spn_enabled, spn_button_text ) = match spn_status_text {
-        "disabled" => { (false, "Enable SPN") }
-        _ => { (true, "Disable SPN") },
-    };
-    
-    let spn_status = MenuItemBuilder::with_id(SPN_STATUS_KEY, format!("SPN: {}", spn_status_text))
-        .enabled(false)
-        .build(app)
-        .unwrap();
-    let spn_button = MenuItemBuilder::with_id(SPN_BUTTON_KEY, spn_button_text)
-        .build(app)
-        .unwrap();
 
     // Setup Icon theme submenu
     let system_theme = MenuItemBuilder::with_id(SYSTEM_THEME_KEY, "System")
@@ -211,38 +200,21 @@ fn build_tray_menu(
         .items(&[&system_theme, &light_theme, &dark_theme])
         .build()?;
 
-
     // Setup Pause/Resume menu items
-    let disabled_spn_pause = (!spn_enabled && !pause_info.spn) || pause_info.interception;
-    let pause_spn_5min_item = MenuItemBuilder::with_id(PAUSE_SPN_5_KEY, "Pause SPN for 5 minutes").enabled(!disabled_spn_pause).build(app)?;
-    let pause_spn_15min_item = MenuItemBuilder::with_id(PAUSE_SPN_15_KEY, "Pause SPN for 15 minutes").enabled(!disabled_spn_pause).build(app)?;
-    let pause_spn_1hour_item = MenuItemBuilder::with_id(PAUSE_SPN_60_KEY, "Pause SPN for 1 hour").enabled(!disabled_spn_pause).build(app)?;
+    let pause_pm_5min_item =
+        MenuItemBuilder::with_id(PAUSE_PM_5_KEY, "Pause for 5 minutes").build(app)?;
+    let pause_pm_15min_item =
+        MenuItemBuilder::with_id(PAUSE_PM_15_KEY, "Pause for 15 minutes").build(app)?;
+    let pause_pm_1hour_item =
+        MenuItemBuilder::with_id(PAUSE_PM_60_KEY, "Pause for 1 hour").build(app)?;
 
-    let pause_pm_5min_item = MenuItemBuilder::with_id(PAUSE_PM_5_KEY, "Pause for 5 minutes").build(app)?;
-    let pause_pm_15min_item = MenuItemBuilder::with_id(PAUSE_PM_15_KEY, "Pause for 15 minutes").build(app)?;
-    let pause_pm_1hour_item = MenuItemBuilder::with_id(PAUSE_PM_60_KEY, "Pause for 1 hour").build(app)?;
-
-    let pause_menu =  if !spn_enabled && !pause_info.spn {
-        SubmenuBuilder::new(app, "Pause")
-            .items(&[
-                &pause_pm_5min_item,
-                &pause_pm_15min_item,
-                &pause_pm_1hour_item,
-            ])
-            .build()?
-    } else {
-        SubmenuBuilder::new(app, "Pause")
-            .items(&[
-                &pause_spn_5min_item,
-                &pause_spn_15min_item,
-                &pause_spn_1hour_item,
-                &PredefinedMenuItem::separator(app)?,
-                &pause_pm_5min_item,
-                &pause_pm_15min_item,
-                &pause_pm_1hour_item,
-            ])
-            .build()?
-    };
+    let pause_menu = SubmenuBuilder::new(app, "Pause")
+        .items(&[
+            &pause_pm_5min_item,
+            &pause_pm_15min_item,
+            &pause_pm_1hour_item,
+        ])
+        .build()?;
 
     /* DEV MENU
     let force_show_window = MenuItemBuilder::with_id(FORCE_SHOW_KEY, "Force Show UI").build(app)?;
@@ -251,14 +223,12 @@ fn build_tray_menu(
         .items(&[&reload_btn, &force_show_window])
         .build()?;
     */
-    
+
     // Assemble menu items
     let s = PredefinedMenuItem::separator(app)?;
     let mut items: Vec<&dyn tauri::menu::IsMenuItem<Wry>> = Vec::new();
 
-
-
-    items.push(&global_status);    
+    items.push(&global_status);
     items.push(&s);
 
     if let Some(ref pause_status_item) = pause_status_item {
@@ -273,40 +243,41 @@ fn build_tray_menu(
     items.push(&pause_menu);
     items.push(&s);
 
-    items.push(&spn_status);
-    items.push(&spn_button);
-    items.push(&s);
-
     items.push(&theme_menu);
     items.push(&s);
-    
+
     items.push(&open_btn);
     items.push(&s);
 
     items.push(&exit_ui_btn);
     items.push(&shutdown_btn);
     //items.push(&developer_menu);
-    
+
     let menu = MenuBuilder::with_id(app, PM_TRAY_MENU_ID)
         .items(&items)
         .build()?;
 
-    return Ok(menu);
+    Ok(menu)
 }
 
 pub fn setup_tray_menu(
     app: &mut tauri::App,
 ) -> core::result::Result<AppIcon, Box<dyn std::error::Error>> {
-    let menu = build_tray_menu(app.handle(), "unknown", "disabled", &system_status_types::PauseInfo::default())?;
+    let menu = build_tray_menu(
+        app.handle(),
+        "unknown",
+        &system_status_types::PauseInfo::default(),
+    )?;
 
     let icon = TrayIconBuilder::with_id(PM_TRAY_ICON_ID)
+        .tooltip("Portmaster Plus")
         .icon(Image::from_bytes(get_red_icon()).unwrap())
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id().as_ref() {
             EXIT_UI_KEY => {
                 let handle = app.clone();
                 app.dialog()
-                    .message("This does not stop the Portmaster system service")
+                    .message("This does not stop the Portmaster Plus system service")
                     .title("Do you really want to quit the user interface?")
                     .buttons(MessageDialogButtons::OkCancelCustom(
                         "Yes, exit".to_owned(),
@@ -332,20 +303,13 @@ pub fn setup_tray_menu(
                     Ok(mut win) => {
                         may_navigate_to_ui(&mut win, true);
                         if let Err(err) = win.show() {
-                            error!("[tauri] failed to show window: {}", err.to_string());
+                            error!("[tauri] failed to show window: {}", err);
                         };
                     }
                     Err(err) => {
-                        error!("[tauri] failed to create main window: {}", err.to_string());
+                        error!("[tauri] failed to create main window: {}", err);
                     }
                 };
-            }
-            SPN_BUTTON_KEY => {
-                if SPN_STATE.load(Ordering::Acquire) {
-                    app.portmaster().set_spn_enabled(false);
-                } else {
-                    app.portmaster().set_spn_enabled(true);
-                }
             }
             SHUTDOWN_KEY => {
                 app.portmaster().trigger_shutdown();
@@ -354,12 +318,9 @@ pub fn setup_tray_menu(
             DARK_THEME_KEY => update_icon_theme(app, dark_light::Mode::Dark),
             LIGHT_THEME_KEY => update_icon_theme(app, dark_light::Mode::Light),
 
-            PAUSE_SPN_5_KEY => app.portmaster().set_pause(60*5, true),
-            PAUSE_SPN_15_KEY => app.portmaster().set_pause(60*15, true),
-            PAUSE_SPN_60_KEY => app.portmaster().set_pause(60*60, true),
-            PAUSE_PM_5_KEY => app.portmaster().set_pause(60*5, false),
-            PAUSE_PM_15_KEY => app.portmaster().set_pause(60*15, false),
-            PAUSE_PM_60_KEY => app.portmaster().set_pause(60*60, false),
+            PAUSE_PM_5_KEY => app.portmaster().set_pause(60 * 5),
+            PAUSE_PM_15_KEY => app.portmaster().set_pause(60 * 15),
+            PAUSE_PM_60_KEY => app.portmaster().set_pause(60 * 60),
             RESUME_KEY => app.portmaster().set_resume(),
 
             other => {
@@ -387,9 +348,10 @@ pub fn setup_tray_menu(
     Ok(icon)
 }
 
-pub fn update_icon(icon: AppIcon, system_status: SystemStatus, spn_status: String) {
-    // Extract the worst state type 
-    let worst_state_type = system_status.worst_state
+pub fn update_icon(icon: AppIcon, system_status: SystemStatus) {
+    // Extract the worst state type
+    let worst_state_type = system_status
+        .worst_state
         .as_ref()
         .and_then(|ws| ws.state.state_type.clone())
         .unwrap_or(system_status_types::StateType::Undefined);
@@ -398,26 +360,22 @@ pub fn update_icon(icon: AppIcon, system_status: SystemStatus, spn_status: Strin
     let (status, icon_color) = match worst_state_type {
         system_status_types::StateType::Error => ("Insecure", IconColor::Red),
         system_status_types::StateType::Warning => ("Insecure", IconColor::Yellow),
-        _ => {
-            let color = match spn_status.as_str() {
-                "connected" | "connecting" => IconColor::Blue,
-                _ => IconColor::Green,
-            };
-            ("Secured", color)
-        }
+        _ => ("Secured", IconColor::Green),
     };
 
     // Extract pause info from system status
     let pause_info = system_status
         .get_module_state("Control", "control:paused")
         .and_then(|state| state.data.as_ref())
-        .and_then(|data| serde_json::from_value::<system_status_types::PauseInfo>(data.clone()).ok())
+        .and_then(|data| {
+            serde_json::from_value::<system_status_types::PauseInfo>(data.clone()).ok()
+        })
         .unwrap_or_default();
 
     // Rebuild and set the tray menu
-    if let Ok(menu) = build_tray_menu(icon.app_handle(), status, spn_status.as_str(), &pause_info) {
+    if let Ok(menu) = build_tray_menu(icon.app_handle(), status, &pause_info) {
         if let Err(err) = icon.set_menu(Some(menu)) {
-            error!("failed to set menu on tray icon: {}", err.to_string());
+            error!("failed to set menu on tray icon: {}", err);
         }
     }
 
@@ -443,38 +401,6 @@ pub async fn tray_handler(cli: PortAPI, app: tauri::AppHandle) {
         Err(err) => {
             error!(
                 "cancel try_handler: failed to subscribe to 'runtime:system/status': {}",
-                err
-            );
-            return;
-        }
-    };
-
-    let mut spn_status_subscription = match cli
-        .request(Request::QuerySubscribe(
-            "query runtime:spn/status".to_string(),
-        ))
-        .await
-    {
-        Ok(rx) => rx,
-        Err(err) => {
-            error!(
-                "cancel try_handler: failed to subscribe to 'runtime:spn/status': {}",
-                err
-            );
-            return;
-        }
-    };
-
-    let mut spn_config_subscription = match cli
-        .request(Request::QuerySubscribe(
-            "query config:spn/enable".to_string(),
-        ))
-        .await
-    {
-        Ok(rx) => rx,
-        Err(err) => {
-            error!(
-                "cancel try_handler: failed to subscribe to 'runtime:spn/enable': {}",
                 err
             );
             return;
@@ -515,9 +441,6 @@ pub async fn tray_handler(cli: PortAPI, app: tauri::AppHandle) {
 
     update_icon_color(&icon, IconColor::Blue);
 
-    let mut system_status = SystemStatus::default();
-    let mut spn_status: String = "".to_string();
-
     loop {
         tokio::select! {
             msg = system_status_subscription.recv() => {
@@ -536,8 +459,7 @@ pub async fn tray_handler(cli: PortAPI, app: tauri::AppHandle) {
                 if let Some((_, payload)) = res {
                     match payload.parse::<SystemStatus>() {
                         Ok(system_status_update) => {
-                            system_status.clone_from(&system_status_update);
-                            update_icon(icon.clone(), system_status.clone(), spn_status.clone());
+                            update_icon(icon.clone(), system_status_update);
                         },
                         Err(err) => match err {
                             ParseError::Json(err) => {
@@ -547,66 +469,6 @@ pub async fn tray_handler(cli: PortAPI, app: tauri::AppHandle) {
                                 error!("unknown error when parsing SystemStatus payload");
                             }
                         },
-                    }
-                }
-            },
-            msg = spn_status_subscription.recv() => {
-                let msg = match msg {
-                    Some(m) => m,
-                    None => { break }
-                };
-
-                let res = match msg {
-                    Response::Ok(key, payload) => Some((key, payload)),
-                    Response::New(key, payload) => Some((key, payload)),
-                    Response::Update(key, payload) => Some((key, payload)),
-                    _ => None,
-                };
-
-                if let Some((_, payload)) = res {
-                    match payload.parse::<SPNStatus>() {
-                        Ok(value) => {
-                            debug!("SPN status update: {}", value.status);
-                            spn_status.clone_from(&value.status);
-                            update_icon(icon.clone(), system_status.clone(), spn_status.clone());
-                        },
-                        Err(err) => match err {
-                            ParseError::Json(err) => {
-                                error!("failed to parse spn status value: {}", err)
-                            },
-                            _ => {
-                                error!("unknown error when parsing spn status value")
-                            }
-                        }
-                    }
-                }
-            },
-            msg = spn_config_subscription.recv() => {
-                let msg = match msg {
-                    Some(m) => m,
-                    None => { break }
-                };
-
-                let res = match msg {
-                    Response::Ok(key, payload) => Some((key, payload)),
-                    Response::New(key, payload) => Some((key, payload)),
-                    Response::Update(key, payload) => Some((key, payload)),
-                    _ => None,
-                };
-
-                if let Some((_, payload)) = res {
-                    match payload.parse::<BooleanValue>() {
-                        Ok(value) => {
-                            SPN_STATE.store(value.value.unwrap_or(false), Ordering::Release);
-                        },
-                        Err(err) => match err {
-                            ParseError::Json(err) => {
-                                error!("failed to parse config value: {}", err)
-                            },
-                            _ => {
-                                error!("unknown error when parsing config value")
-                            }
-                        }
                     }
                 }
             },
@@ -650,9 +512,13 @@ pub async fn tray_handler(cli: PortAPI, app: tauri::AppHandle) {
 pub fn update_icon_nostate(icon: AppIcon) {
     update_icon_color(&icon, IconColor::Red);
 
-    if let Ok(menu) = build_tray_menu(icon.app_handle(), "unknown",  "unknown", &system_status_types::PauseInfo::default()) {
+    if let Ok(menu) = build_tray_menu(
+        icon.app_handle(),
+        "unknown",
+        &system_status_types::PauseInfo::default(),
+    ) {
         if let Err(err) = icon.set_menu(Some(menu)) {
-            error!("failed to set menu on tray icon: {}", err.to_string());
+            error!("failed to set menu on tray icon: {}", err);
         }
     }
 }

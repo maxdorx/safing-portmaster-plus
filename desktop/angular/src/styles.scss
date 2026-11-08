@@ -21,6 +21,15 @@
 
 @import 'safing/ui/theming';
 
+// Only page content scrolls; keep the application shell inside the viewport.
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
 *[routerlink] {
   cursor: pointer;
 }

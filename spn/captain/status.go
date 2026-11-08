@@ -107,7 +107,7 @@ func AddToDebugInfo(di *debug.Info) {
 	// Check if SPN module is enabled.
 	var moduleStatus string
 	spnEnabled := config.GetAsBool(CfgOptionEnableSPNKey, false)
-	if spnEnabled() {
+	if !conf.Integrated() && spnEnabled() {
 		moduleStatus = "enabled"
 	} else {
 		moduleStatus = "disabled"

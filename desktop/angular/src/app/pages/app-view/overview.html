@@ -119,6 +119,7 @@
         *appExpertiseLevel="profile.Internal ? 'developer' : 'user'"
         class="relative card-header"
         [ngClass]="{'ring-1 ring-inset ring-yellow-300': profile.selected}"
+        [sfng-tooltip]="profile | appFingerprint"
         (click)="handleProfileClick(profile, $event)"
         [routerLink]="selectMode ? null : ['/app', profile.Source,  profile.ID]"
       >

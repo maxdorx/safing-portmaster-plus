@@ -1,7 +1,7 @@
 import { INTEGRATION_SERVICE, IntegrationService } from 'src/app/integration';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Inject, OnInit, Output, inject } from '@angular/core';
-import { ConfigService, DebugAPI, PortapiService, SPNService, StringSetting, BoolSetting } from '@safing/portmaster-api';
+import { ConfigService, DebugAPI, PortapiService, StringSetting } from '@safing/portmaster-api';
 import { tap } from 'rxjs/operators';
 import { AppComponent } from 'src/app/app.component';
 import { NotificationType, NotificationsService, StatusService, VersionStatus, GetModuleState, ControlPauseStateData } from 'src/app/services';
@@ -37,23 +37,13 @@ export class NavigationComponent implements OnInit {
   notificationColor: string = 'text-green-300';
 
   pauseState: ControlPauseStateData | null = null;
-  get isPaused(): boolean { return this.pauseState?.Interception===true || this.pauseState?.SPN===true; }
-  get isPausedInterception(): boolean { return this.pauseState?.Interception===true; }
-  get isPausedSPN(): boolean { return this.pauseState?.SPN===true; }
-  get pauseInfo(): string {
-    if (this.pauseState?.Interception===true && this.pauseState?.SPN===true) 
-      return 'Portmaster and SPN are paused';
-    else if (this.pauseState?.Interception===true)
-      return 'Portmaster is paused';
-    else if (this.pauseState?.SPN===true)
-      return 'SPN is paused';
-    return '';
-  }
+  get isPaused(): boolean { return this.pauseState?.Interception === true; }
+  get pauseInfo(): string { return this.isPaused ? 'Portmaster Plus is paused' : ''; }
   get pauseInfoTillTime(): string {
     if (this.isPaused && this.pauseState?.TillTime) {
       const date = new Date(this.pauseState.TillTime);
       if (isNaN(date.getTime()) || date.getTime() < Date.now())
-        return '';    
+        return '';
       return `Auto-resume at ${date.toLocaleTimeString(undefined, { hour12: false })}`;
     }
     return '';
@@ -64,9 +54,6 @@ export class NavigationComponent implements OnInit {
 
   /** Whether or not prompting is globally enabled. */
   globalPromptingEnabled = false;
-
-  /** Whether or not the SPN is currently enabled */
-  spnEnabled = false;
 
   @Output()
   sideDashChange = new EventEmitter<'collapsed' | 'expanded' | 'force-overlay'>();
@@ -83,7 +70,6 @@ export class NavigationComponent implements OnInit {
     private debugAPI: DebugAPI,
     private actionIndicator: ActionIndicatorService,
     private notificationService: NotificationsService,
-    private spnService: SPNService,
     private cdr: ChangeDetectorRef
   ) { }
 
@@ -128,16 +114,9 @@ export class NavigationComponent implements OnInit {
         this.globalPromptingEnabled = defaultAction === 'ask';
         this.cdr.markForCheck();
       })
-    
-    this.configService.watch<BoolSetting>("spn/enable")
-      .subscribe(value => {
-        this.spnEnabled = value;
-        this.cdr.markForCheck();
-      });
 
     this.notificationService.new$
       .subscribe(notif => {
-
 
         if (notif.some(n => n.Type === NotificationType.Prompt && n.EventID.startsWith("filter:prompt"))) {
           this.hasNewPrompts = true;
@@ -207,24 +186,6 @@ export class NavigationComponent implements OnInit {
       ))
   }
 
-  /** Re-initialize the SPN */
-  reinitSPN(_: Event) {
-    this.portapi.reinitSPN()
-      .subscribe(this.actionIndicator.httpObserver(
-        'Re-initialized SPN',
-        'Failed to re-initialize the SPN'
-      ))
-  }
-
-  /** Logs the user out of the SPN completely by purgin the user profile from the local storage */
-  logoutCompletely(_: Event) {
-    this.spnService.logout(true)
-      .subscribe(this.actionIndicator.httpObserver(
-        'Logout',
-        'You have been logged out of the SPN completely.'
-      ))
-  }
-
   /**
    * @private
    * Clear the DNS name cache.
@@ -254,7 +215,7 @@ export class NavigationComponent implements OnInit {
   downloadUpdates(event: Event) {
     this.portapi.checkForUpdates()
       .subscribe(this.actionIndicator.httpObserver(
-        'Downloading Updates ...',
+        'Updating Intelligence Data ...',
         'Failed to Check for Updates',
       ))
   }
@@ -299,51 +260,31 @@ export class NavigationComponent implements OnInit {
         'Failed to Pause',
       ))
   }
-  pauseSPN(event: Event, duration: number) {
-    // prevent default and stop-propagation to avoid
-    // expanding the accordion body.
-    event.preventDefault();
-    event.stopPropagation();
-
-    this.portapi.pause(duration, true)
-      .subscribe(this.actionIndicator.httpObserver(
-        'Pausing SPN...',
-        'Failed to Pause SPN',
-      ))
-  }
   resume(event: Event) {
     // prevent default and stop-propagation to avoid
     // expanding the accordion body.
     event.preventDefault();
     event.stopPropagation();
 
-    let msg = 'Resuming ...';
-    if (this.pauseState?.Interception===true && this.pauseState?.SPN===true) 
-      msg = 'Resuming Portmaster and SPN ...';
-    else if (this.pauseState?.Interception===true)
-      msg = 'Resuming Portmaster ...';
-    else if (this.pauseState?.SPN===true)
-      msg = 'Resuming SPN ...';
-
     this.portapi.resume()
       .subscribe(this.actionIndicator.httpObserver(
-        msg,
+        'Resuming Portmaster Plus ...',
         'Failed to Resume',
       ))
   }
-    
+
   /**
    * @private
-   * Opens the data-directory of the portmaster installation.
-   * Requires the application to run inside electron.
+   * Opens the data directory of the portmaster installation in the
+   * system file manager. Not supported when running in a browser.
    */
-  async openDataDir(event: Event) {
-    const dir = await this.integration.getInstallDir()
-    await this.integration.openExternal(dir);
+  openDataDir(event: Event) {
+    this.integration.openDir('data')
+      .catch(err => this.actionIndicator.error('Failed to open data directory', err));
   }
 
   openChangeLog() {
-    const url = "https://github.com/safing/portmaster/releases";
+    const url = "https://github.com/maxdorx/safing-portmaster-plus/releases";
     this.integration.openExternal(url);
   }
 

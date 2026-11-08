@@ -2,141 +2,24 @@ package firewall
 
 import (
 	"context"
-	"errors"
 
 	"github.com/safing/portmaster/base/log"
 	"github.com/safing/portmaster/service/intel"
-	"github.com/safing/portmaster/service/netenv"
 	"github.com/safing/portmaster/service/network"
-	"github.com/safing/portmaster/service/network/packet"
 	"github.com/safing/portmaster/service/process"
 	"github.com/safing/portmaster/service/profile"
 	"github.com/safing/portmaster/service/profile/endpoints"
 	"github.com/safing/portmaster/service/resolver"
+	"github.com/safing/portmaster/spn/access"
 	"github.com/safing/portmaster/spn/captain"
-	"github.com/safing/portmaster/spn/crew"
 	"github.com/safing/portmaster/spn/navigator"
-	"github.com/safing/portmaster/spn/sluice"
 )
 
-func checkTunneling(ctx context.Context, conn *network.Connection) {
-	// Check if the connection should be tunneled at all.
-	switch {
-	case !tunnelEnabled():
-		// Tunneling is disabled.
-		return
-	case !conn.Entity.IPScope.IsGlobal():
-		// Can't tunnel Local/LAN connections.
-		return
-	case conn.Inbound:
-		// Can't tunnel incoming connections.
-		return
-	case conn.Verdict != network.VerdictAccept:
-		// Connection will be blocked.
-		return
-	case conn.IPProtocol != packet.TCP && conn.IPProtocol != packet.UDP:
-		// Unsupported protocol.
-		return
-	case conn.Process().Pid == ownPID:
-		// Bypass tunneling for certain own connections.
-		switch {
-		case !captain.ClientReady():
-			return
-		case captain.IsExcepted(conn.Entity.IP):
-			return
-		}
-	}
+// checkTunneling ignores legacy SPN settings and profiles in this local build.
+func checkTunneling(_ context.Context, _ *network.Connection) {}
 
-	// Check more extensively for Local/LAN connections.
-	localNet, err := netenv.GetLocalNetwork(conn.Entity.IP)
-	if err != nil {
-		log.Warningf("firewall: failed to check if %s is in my net: %s", conn.Entity.IP, err)
-	} else if localNet != nil {
-		// With IPv6, just checking the IP scope is not enough, as the host very
-		// likely has a public IPv6 address.
-		// Don't tunnel LAN connections.
-
-		// TODO: We currently don't check the full LAN scope, but only the
-		// broadcast domain of the host - ie. the networks that the host is
-		// directly attached to.
-		return
-	}
-
-	// Get profile.
-	layeredProfile := conn.Process().Profile()
-	if layeredProfile == nil {
-		conn.Failed("no profile set", "")
-		return
-	}
-
-	// Update profile.
-	if layeredProfile.NeedsUpdate() {
-		// Update revision counter in connection.
-		conn.ProfileRevisionCounter = layeredProfile.Update(
-			conn.Process().MatchingData(),
-			conn.Process().CreateProfileCallback,
-		)
-		conn.SaveWhenFinished()
-	} else {
-		// Check if the revision counter of the connection needs updating.
-		revCnt := layeredProfile.RevisionCnt()
-		if conn.ProfileRevisionCounter != revCnt {
-			conn.ProfileRevisionCounter = revCnt
-			conn.SaveWhenFinished()
-		}
-	}
-
-	// Check if tunneling is enabled for this app at all.
-	if !layeredProfile.UseSPN() {
-		return
-	}
-
-	// Check if tunneling is enabled for entity.
-	conn.Entity.FetchData(ctx)
-	result, _ := layeredProfile.MatchSPNUsagePolicy(ctx, conn.Entity)
-	switch result {
-	case endpoints.MatchError:
-		conn.Failed("failed to check SPN rules", profile.CfgOptionSPNUsagePolicyKey)
-		return
-	case endpoints.Denied:
-		return
-	case endpoints.Permitted, endpoints.NoMatch:
-		// Continue
-	}
-
-	// Tunnel all the things!
-	conn.SaveWhenFinished()
-
-	// Check if ready.
-	if !captain.ClientReady() {
-		// Block connection as SPN is not ready yet.
-		log.Tracer(ctx).Trace("SPN not ready for tunneling")
-		conn.Failed("SPN not ready for tunneling", "")
-		return
-	}
-
-	conn.SetVerdictDirectly(network.VerdictRerouteToTunnel)
-	conn.Tunneled = true
-}
-
-func requestTunneling(ctx context.Context, conn *network.Connection) error {
-	// Get profile.
-	layeredProfile := conn.Process().Profile()
-	if layeredProfile == nil {
-		return errors.New("no profile set")
-	}
-
-	// Get tunnel options.
-	conn.TunnelOpts = DeriveTunnelOptions(layeredProfile, conn.Process(), conn.Entity, conn.Encrypted)
-
-	// Queue request in sluice.
-	err := sluice.AwaitRequest(conn, crew.HandleSluiceRequest)
-	if err != nil {
-		return err
-	}
-
-	log.Tracer(ctx).Trace("filter: tunneling requested")
-	return nil
+func requestTunneling(_ context.Context, _ *network.Connection) error {
+	return access.ErrSPNUnavailable
 }
 
 func init() {
@@ -180,7 +63,7 @@ func DeriveTunnelOptions(lp *profile.LayeredProfile, proc *process.Process, dest
 	}
 
 	// If the current home node is not trusted, then upgrade at least to two hops.
-	if routingProfile.MinHops < 2 {
+	if routingProfile.MinHops < 2 && navigator.Main != nil {
 		homeNode, _ := navigator.Main.GetHome()
 		if homeNode != nil && !homeNode.State.Has(navigator.StateTrusted) {
 			tunnelOpts.RoutingProfile = navigator.RoutingProfileDoubleHopID

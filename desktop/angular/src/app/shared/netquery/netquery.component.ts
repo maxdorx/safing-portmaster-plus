@@ -3,7 +3,7 @@ import { FormatWidth, formatDate, getLocaleDateFormat, getLocaleId } from "@angu
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, EventEmitter, Input, LOCALE_ID, OnDestroy, OnInit, Output, QueryList, TemplateRef, TrackByFunction, ViewChildren, inject, isDevMode } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ActivatedRoute, Router } from "@angular/router";
-import { BandwidthChartResult, ChartResult, Condition, Database, FeatureID, GreaterOrEqual, IPScope, LessOrEqual, Netquery, NetqueryConnection, OrderBy, Pin, PossilbeValue, Query, QueryResult, SPNService, Select, Verdict } from "@safing/portmaster-api";
+import { BandwidthChartResult, ChartResult, Condition, Database, GreaterOrEqual, IPScope, LessOrEqual, Netquery, NetqueryConnection, OrderBy, PossilbeValue, Query, QueryResult, Select, Verdict } from "@safing/portmaster-api";
 import { Datasource, DynamicItemsPaginator, SelectOption } from "@safing/ui";
 import { BehaviorSubject, Observable, Subject, combineLatest, forkJoin, interval, merge, of, timer } from "rxjs";
 import { catchError, filter, map, share, skip, startWith, switchMap, take, takeUntil } from "rxjs/operators";
@@ -73,7 +73,6 @@ interface LocalQueryResult extends QueryResult {
   _chart: Observable<ChartResult[]> | null;
   _group: Observable<DynamicItemsPaginator<NetqueryConnection>> | null;
   __profile?: LocalAppProfile;
-  __exitNode?: Pin;
 }
 
 interface QuickDateSetting {
@@ -248,7 +247,7 @@ export class SfngNetqueryViewer implements OnInit, OnDestroy, AfterViewInit {
   /** @private Used to refresh the "Last reload xxx ago" message */
   private lastReloadTickerForceUpdate$ = new Subject<void>();
   lastReloadTicker = merge(
-    interval(2000), 
+    interval(2000),
     this.lastReloadTickerForceUpdate$.pipe(takeUntilDestroyed(this.destroyRef))
   )
     .pipe(
@@ -257,18 +256,17 @@ export class SfngNetqueryViewer implements OnInit, OnDestroy, AfterViewInit {
       share()
     )
 
-
   /** Auto-reload: The list of all intervals */
   readonly reloadIntervals = Object.keys(reloadIntervalValues);
   /** Auto-reload: The name of the currently selected auto-reload interval */
-  autoReloadIntervalName: string = ''; 
+  autoReloadIntervalName: string = '';
   /** Auto-reload: The timestamp of auto-reload being enabled */
   autoReloadEnabledTimestamp: Date | null = null;
   /** Auto-reload: Enable/disable auto-reload and set the interval */
   onAutoRefreshChange(intervalName: string) {
     const delaySec = reloadIntervalValues[intervalName] || 0;
-    if (delaySec <= 0) {      
-      this.autoReloadIntervalName = '';     
+    if (delaySec <= 0) {
+      this.autoReloadIntervalName = '';
       return;
     }
     this.autoReloadEnabledTimestamp = new Date();
@@ -290,7 +288,7 @@ export class SfngNetqueryViewer implements OnInit, OnDestroy, AfterViewInit {
 
         const intervalSeconds = reloadIntervalValues[this.autoReloadIntervalName] || 0;
         if (intervalSeconds <= 0) return 0;
-      
+
         const startTime = (this.autoReloadEnabledTimestamp && this.autoReloadEnabledTimestamp > this.lastReload) ? this.autoReloadEnabledTimestamp : this.lastReload;
         const elapsedSeconds = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
         const remainingSeconds = intervalSeconds - elapsedSeconds;
@@ -318,27 +316,8 @@ export class SfngNetqueryViewer implements OnInit, OnDestroy, AfterViewInit {
   }
 
   // whether or not the current use has the history feature available.
-  canUseHistory$ = inject(SPNService).profile$
-    .pipe(
-      map(profile => {
-        if (!profile) {
-          return false;
-        }
-
-        return profile.current_plan?.feature_ids?.includes(FeatureID.History) || false;
-      })
-    );
-
-  featureBw$ = inject(SPNService).profile$
-    .pipe(
-      map(profile => {
-        if (!profile) {
-          return false;
-        }
-
-        return profile.current_plan?.feature_ids?.includes(FeatureID.Bandwidth) || false;
-      })
-    );
+  canUseHistory$ = of(true);
+  featureBw$ = of(true);
 
   trackPageItem: TrackByFunction<LocalQueryResult> = (_, r) => {
     if (this.groupByKeys?.length) {
@@ -419,7 +398,6 @@ export class SfngNetqueryViewer implements OnInit, OnDestroy, AfterViewInit {
 
     const fromValid = !isNaN(fromValueTs)
     const toValid = !isNaN(toValueTs)
-
 
     let fromValue = new Date(fromValueTs)
     let toValue = new Date(toValueTs);
@@ -534,18 +512,11 @@ export class SfngNetqueryViewer implements OnInit, OnDestroy, AfterViewInit {
         }
       ]
     },
-    exit_node: {},
     asn: {},
     active: {
       visible: 'combinedMenu',
       menuTitle: 'Active',
       suggestions: booleanSuggestionValues(),
-    },
-    tunneled: {
-      visible: 'combinedMenu',
-      menuTitle: 'SPN',
-      suggestions: booleanSuggestionValues(),
-      tipupKey: 'spn'
     },
     from: {
       virtual: true
@@ -579,7 +550,6 @@ export class SfngNetqueryViewer implements OnInit, OnDestroy, AfterViewInit {
         return this.netquery.query(query, 'netquery-viewer')
           .pipe(
             this.helper.attachProfile(),
-            this.helper.attachPins(),
             map(results => {
               return (results || []).map(r => {
                 const grpFilter: Condition = {
@@ -610,7 +580,7 @@ export class SfngNetqueryViewer implements OnInit, OnDestroy, AfterViewInit {
     // The actual searching is debounced by second so we don't flood the Portmaster service
     // with queries while the user is still configuring their filters.
     this.search$
-      .pipe(        
+      .pipe(
         this.adaptiveDebounce(1000, () => this.lastReload.getTime()),
         switchMap(() => {
           this.loading = true;
@@ -874,10 +844,10 @@ export class SfngNetqueryViewer implements OnInit, OnDestroy, AfterViewInit {
 
 /**
  * Delays emissions only when last operation was recent.
- * 
+ *
  * @param minDelayMs - Minimum milliseconds between operations
  * @param getLastOperationTime - Function returning last operation timestamp
- * 
+ *
  * @example
  * // Delay search only if last search was < 1 second ago
  * this.search$.pipe(adaptiveDebounce(1000, () => this.lastReload.getTime()))
@@ -1087,7 +1057,7 @@ export class SfngNetqueryViewer implements OnInit, OnDestroy, AfterViewInit {
 
   /** @private Query the portmaster service for connections matching the current settings */
   performSearch() {
-    this.loading = true;    
+    this.loading = true;
     this.paginator.clear()
     this.search$.next();
     this.updateTagbarValues();

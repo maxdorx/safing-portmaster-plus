@@ -25,8 +25,8 @@ func (c *Control) registerAPIEndpoints() error {
 		Path:        APIEndpointPause,
 		Write:       api.PermitAdmin,
 		ActionFunc:  c.handlePause,
-		Name:        "Pause Portmaster",
-		Description: "Pause the Portmaster Core Service.",
+		Name:        "Pause Portmaster Plus",
+		Description: "Pause the Portmaster Plus Core Service.",
 		Parameters: []api.Parameter{
 			{
 				Method:      http.MethodPost,
@@ -47,8 +47,8 @@ func (c *Control) registerAPIEndpoints() error {
 		Path:        APIEndpointResume,
 		Write:       api.PermitAdmin,
 		ActionFunc:  c.handleResume,
-		Name:        "Resume Portmaster",
-		Description: "Resume the Portmaster Core Service.",
+		Name:        "Resume Portmaster Plus",
+		Description: "Resume the Portmaster Plus Core Service.",
 	}); err != nil {
 		return err
 	}

@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=Portmaster
+Name=Portmaster Plus
 GenericName=Application Firewall Notifier
 Exec=/usr/bin/portmaster --with-prompts --with-notifications --background
 Icon=portmaster

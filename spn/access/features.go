@@ -1,6 +1,25 @@
 package access
 
-import "github.com/safing/portmaster/spn/access/account"
+import (
+	"github.com/safing/portmaster/spn/access/account"
+	"github.com/safing/portmaster/spn/conf"
+)
+
+// availableFeatures presents only features usable by the local application.
+func availableFeatures() []Feature {
+	if !conf.Integrated() {
+		return features
+	}
+	available := make([]Feature, 0, len(features))
+	for _, feature := range features {
+		if feature.RequiredFeatureID != "" && !isLocallyEnabled(feature.RequiredFeatureID) {
+			continue
+		}
+		feature.InPackage = &Package{Name: "Plus", HexColor: "#2fcfae"}
+		available = append(available, feature)
+	}
+	return available
+}
 
 // Feature describes a notable part of the program.
 type Feature struct {

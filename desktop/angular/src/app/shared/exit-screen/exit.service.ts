@@ -9,9 +9,9 @@ import { ActionIndicatorService } from '../action-indicator';
 import { ExitScreenComponent } from './exit-screen';
 import { INTEGRATION_SERVICE } from 'src/app/integration';
 
-const MessageConnecting = 'Connecting to Portmaster';
-const MessageShutdown = 'Shutting Down Portmaster';
-const MessageRestart = 'Restarting Portmaster';
+const MessageConnecting = 'Connecting to Portmaster Plus';
+const MessageShutdown = 'Shutting Down Portmaster Plus';
+const MessageRestart = 'Restarting Portmaster Plus';
 const MessageHidden = '';
 
 export type OverlayMessage = typeof MessageConnecting
@@ -52,7 +52,6 @@ export class ExitService {
           this._showOverlay.next(MessageConnecting)
         }
       })
-
 
     let restartInProgress = false;
     merge<OverlayMessage[]>(
@@ -124,14 +123,14 @@ export class ExitService {
   shutdownPortmaster() {
     this.dialog.confirm({
       canCancel: true,
-      header: 'Shutting Down Portmaster',
-      message: 'Shutting down the Portmaster will stop all Portmaster components and will leave your system unprotected!',
+      header: 'Shutting Down Portmaster Plus',
+      message: 'Shutting down the Portmaster Plus will stop all Portmaster Plus components and will leave your system unprotected!',
       caption: 'Caution',
       buttons: [
         {
           id: 'shutdown',
           class: 'danger',
-          text: 'Shut Down Portmaster'
+          text: 'Shut Down Portmaster Plus'
         }
       ]
     })

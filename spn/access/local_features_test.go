@@ -3,6 +3,7 @@ package access
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/safing/portmaster/spn/access/account"
 )
@@ -26,6 +27,40 @@ func TestApplyLocalFeaturesReleasesLock(t *testing.T) {
 		t.Fatal("record still locked after applyLocalFeatures: Save would deadlock")
 	}
 	user.Unlock()
+}
+
+func TestLocalPlanReplacesStoredSubscriptionFeatures(t *testing.T) {
+	t.Parallel()
+	endsAt := time.Now().Add(time.Hour)
+	user := &UserRecord{User: &account.User{
+		State:        account.UserStateApproved,
+		Username:     "stored-user",
+		Device:       &account.Device{ID: "stored-device"},
+		Subscription: &account.Subscription{EndsAt: &endsAt},
+		CurrentPlan:  &account.Plan{Name: "Unlimited", FeatureIDs: []account.FeatureID{account.FeatureSPN, account.FeatureSafingSupport}},
+		View:         &account.View{ShowLoginButton: true, ShowAccountButton: true},
+	}}
+	if !applyLocalFeatures(user) {
+		t.Fatal("stored subscription did not receive local plan")
+	}
+	if user.CurrentPlan.Name != "Portmaster Plus" {
+		t.Errorf("plan = %q", user.CurrentPlan.Name)
+	}
+	if !slices.Equal(user.CurrentPlan.FeatureIDs, locallyEnabledFeatures) {
+		t.Errorf("plan features = %v", user.CurrentPlan.FeatureIDs)
+	}
+	if user.MayUseSPN() || user.MayUseTheSPN() || user.MayUse(account.FeatureSPN) {
+		t.Error("stored SPN subscription still grants SPN access")
+	}
+	if user.View.ShowLoginButton || user.View.ShowAccountButton {
+		t.Error("local plan exposes account actions")
+	}
+	if user.Username != "stored-user" || user.Device.ID != "stored-device" || user.Subscription.EndsAt != &endsAt {
+		t.Error("stored credentials or subscription were discarded")
+	}
+	if applyLocalFeatures(user) {
+		t.Error("second apply should be a no-op")
+	}
 }
 
 func TestApplyLocalFeaturesContent(t *testing.T) {

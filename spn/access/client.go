@@ -12,6 +12,7 @@ import (
 	"github.com/safing/portmaster/base/log"
 	"github.com/safing/portmaster/spn/access/account"
 	"github.com/safing/portmaster/spn/access/token"
+	"github.com/safing/portmaster/spn/conf"
 	"github.com/safing/structures/dsd"
 )
 
@@ -50,6 +51,9 @@ type clientRequestOptions struct {
 }
 
 func makeClientRequest(opts *clientRequestOptions) (resp *http.Response, err error) {
+	if conf.Integrated() {
+		return nil, ErrSPNUnavailable
+	}
 	// Get request timeout.
 	if opts.requestTimeout == 0 {
 		opts.requestTimeout = defaultRequestTimeout
@@ -203,6 +207,9 @@ func updateUserWithFailedRequest(statusCode int, disableSubscription bool) {
 
 // Login logs the user into the SPN account with the given username and password.
 func Login(username, password string) (user *UserRecord, code int, err error) {
+	if conf.Integrated() {
+		return nil, http.StatusGone, ErrSPNUnavailable
+	}
 	clientRequestLock.Lock()
 	defer clientRequestLock.Unlock()
 
@@ -289,6 +296,9 @@ func Login(username, password string) (user *UserRecord, code int, err error) {
 // Specify "purge" in order to fully delete all user account data, even
 // the device ID so that logging in again will create a new device.
 func Logout(shallow, purge bool) error {
+	if conf.Integrated() {
+		return ErrSPNUnavailable
+	}
 	clientRequestLock.Lock()
 	defer clientRequestLock.Unlock()
 
@@ -371,6 +381,9 @@ func Logout(shallow, purge bool) error {
 
 // UpdateUser fetches the current user information from the server.
 func UpdateUser() (user *UserRecord, statusCode int, err error) {
+	if conf.Integrated() {
+		return nil, http.StatusGone, ErrSPNUnavailable
+	}
 	clientRequestLock.Lock()
 	defer clientRequestLock.Unlock()
 
@@ -440,6 +453,9 @@ func UpdateUser() (user *UserRecord, statusCode int, err error) {
 
 // UpdateTokens fetches more tokens for handlers that need it.
 func UpdateTokens() error {
+	if conf.Integrated() {
+		return ErrSPNUnavailable
+	}
 	clientRequestLock.Lock()
 	defer clientRequestLock.Unlock()
 
@@ -520,6 +536,9 @@ var (
 )
 
 func healthCheck() (ok bool) {
+	if conf.Integrated() {
+		return false
+	}
 	lastHealthCheckLock.Lock()
 	defer lastHealthCheckLock.Unlock()
 

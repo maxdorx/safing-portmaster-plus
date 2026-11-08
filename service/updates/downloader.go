@@ -87,6 +87,7 @@ func (d *Downloader) getIndex(ctx context.Context, url string) (indexData []byte
 		return nil, nil, fmt.Errorf("parse index: %w", err)
 	}
 
+	d.u.cfg.filterIndex(bundle)
 	return indexData, bundle, nil
 }
 

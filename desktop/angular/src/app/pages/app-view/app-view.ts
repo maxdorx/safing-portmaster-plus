@@ -17,13 +17,11 @@ import {
   Database,
   DebugAPI,
   ExpertiseLevel,
-  FeatureID,
   FlatConfigObject,
   IProfileStats,
   LayeredProfile,
   Netquery,
   PortapiService,
-  SPNService,
   Setting,
   flattenProfileConfig,
   setAppSetting
@@ -45,6 +43,7 @@ import {
   mergeMap,
   startWith,
   switchMap,
+  tap,
 } from 'rxjs/operators';
 import { INTEGRATION_SERVICE } from 'src/app/integration';
 import { SessionDataService } from 'src/app/services';
@@ -71,11 +70,6 @@ export class AppViewComponent implements OnInit, OnDestroy {
   netqueryViewer?: SfngNetqueryViewer;
 
   destroyRef = inject(DestroyRef);
-  spn = inject(SPNService);
-
-  canUseHistory = false;
-  canViewBW = false;
-  canUseSPN = false;
 
   /** subscription to our update-process observable */
   private subscription = Subscription.EMPTY;
@@ -278,6 +272,9 @@ export class AppViewComponent implements OnInit, OnDestroy {
     const source = this.appProfile.Source;
     const id = this.appProfile.ID;
 
+    // Leaving the page after the backend re-keyed the profile (fingerprint
+    // change) is handled by the completion handler of the profile watch
+    // stream, see ngOnInit().
     this.dialog
       .create(EditProfileDialog, {
         backdrop: true,
@@ -287,21 +284,6 @@ export class AppViewComponent implements OnInit, OnDestroy {
       .onAction('deleted', () => {
         // navigate to the app overview if it has been deleted.
         this.router.navigate(['/app/']);
-      })
-      .onAction('saved', () => {
-        // After save, the backend may have migrated the profile to a new ID
-        // (when fingerprints changed). Verify it still exists at the same ID;
-        // if not, navigate to the overview so the user can re-open the app
-        // and the component reinitializes with the correct new profile.
-        this.profileService.getAppProfile(`${source}/${id}`).subscribe({
-          error: () => {
-            this.actionIndicator.info(
-              'Profile ID Changed',
-              'The fingerprint change caused the profile to be re-keyed. You can find the app in the app list to continue editing.'
-            );
-            this.router.navigate(['/app/']);
-          },
-        });
       });
   }
 
@@ -380,8 +362,38 @@ export class AppViewComponent implements OnInit, OnDestroy {
             return throwError(() => err);
           }),
           mergeMap(() => {
+            // A fingerprint change re-keys the profile: the backend saves it
+            // under the new ID and deletes this record. On this key that
+            // shows up as an update with changed fingerprints, followed by
+            // the deletion (which completes the watch stream).
+            let lastFingerprints: string | null = null;
+            let fingerprintsChanged = false;
+
             return combineLatest([
-              this.profileService.watchAppProfile(source, id),
+              this.profileService.watchAppProfile(source, id).pipe(
+                tap({
+                  next: (profile) => {
+                    const fingerprints = JSON.stringify(
+                      profile.Fingerprints ?? []
+                    );
+                    fingerprintsChanged =
+                      lastFingerprints !== null &&
+                      fingerprints !== lastFingerprints;
+                    lastFingerprints = fingerprints;
+                  },
+                  // The watch stream only completes when the backend
+                  // deleted the record.
+                  complete: () => {
+                    if (fingerprintsChanged) {
+                      this.actionIndicator.info(
+                        'Profile ID Changed',
+                        'The fingerprint change caused the profile to be re-keyed. You can find the app in the app list to continue editing.'
+                      );
+                    }
+                    this.router.navigate(['/app/']);
+                  },
+                })
+              ),
               this.profileService
                 .watchLayeredProfile(source, id)
                 .pipe(startWith(null)),
@@ -587,18 +599,6 @@ export class AppViewComponent implements OnInit, OnDestroy {
       }
     );
 
-    this.spn.profile$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (profile) => {
-        this.canUseHistory =
-          profile?.current_plan?.feature_ids?.includes(FeatureID.History) ||
-          false;
-        this.canViewBW =
-          profile?.current_plan?.feature_ids?.includes(FeatureID.Bandwidth) ||
-          false;
-        this.canUseSPN =
-          profile?.current_plan?.feature_ids?.includes(FeatureID.SPN) || false;
-      },
-    });
   }
 
   /**

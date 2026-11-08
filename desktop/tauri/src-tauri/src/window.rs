@@ -3,6 +3,7 @@ use tauri::{
     image::Image, AppHandle, Listener, Manager, Result, Theme, UserAttentionType, WebviewUrl,
     WebviewWindow, WebviewWindowBuilder,
 };
+#[cfg(target_os = "windows")]
 use std::sync::{atomic::{AtomicBool, Ordering}};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
@@ -11,8 +12,11 @@ use crate::{portmaster::PortmasterExt, traymenu};
 const LIGHT_PM_ICON: &[u8] = include_bytes!("../../../../assets/data/icons/pm_light_512.png");
 const DARK_PM_ICON: &[u8] = include_bytes!("../../../../assets/data/icons/pm_dark_512.png");
 
+// Windows only, see `do_before_any_window_create`.
+#[cfg(target_os = "windows")]
 const CUSTOM_ENVVAR_FOR_WEBVIEW_PROCESS: &str = "PORTMASTER_UI_WEBVIEW_PROCESS";
 
+#[cfg(target_os = "windows")]
 static UI_PROCESS_ENV_VAR_DEFINED_FLAG: AtomicBool = AtomicBool::new(false);
 
 /// Either returns the existing "main" window or creates a new one.
@@ -32,7 +36,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
 
         do_before_any_window_create(); // required operations before window creation
         let res = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-            .title("Portmaster")
+            .title("Portmaster Plus")
             .visible(false)
             .inner_size(1200.0, 700.0)
             .min_inner_size(800.0, 600.0)
@@ -48,7 +52,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
                     debug!("[tauri] blocking navigation to about:blank");
                     return false;
                 }
-                return true;
+                true
             })
             .build();
 
@@ -76,7 +80,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
                 win
             }
             Err(err) => {
-                error!("[tauri] failed to create main window: {}", err.to_string());
+                error!("[tauri] failed to create main window: {}", err);
 
                 return Err(err);
             }
@@ -92,7 +96,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
         debug!("[tauri] TAURI_SHOW_IMMEDIATELY is set, opening window");
 
         if let Err(err) = window.show() {
-            error!("[tauri] failed to show window: {}", err.to_string());
+            error!("[tauri] failed to show window: {}", err);
         }
     }
 
@@ -112,7 +116,7 @@ pub fn create_splash_window(app: &AppHandle) -> Result<WebviewWindow> {
             .focused(true)
             .resizable(false)
             .visible(true)
-            .title("Portmaster")
+            .title("Portmaster Plus")
             .inner_size(600.0, 250.0)
             .zoom_hotkeys_enabled(true)
             .build()?;
@@ -140,53 +144,59 @@ pub fn hide_splash_window(app: &AppHandle) -> Result<()> {
 }
 
 pub fn set_window_icon(window: &WebviewWindow) {
-    let mut mode = if let Ok(value) = traymenu::USER_THEME.read() {
-        *value
-    } else {
-        dark_light::Mode::Unspecified
-    };
-
-    if mode == dark_light::Mode::Unspecified {
-        mode = dark_light::detect().unwrap_or(dark_light::Mode::Dark);
-    }
-
-    let _ = match mode {
+    let _ = match traymenu::get_theme_mode() {
         dark_light::Mode::Light => window.set_icon(Image::from_bytes(DARK_PM_ICON).unwrap()),
         _ => window.set_icon(Image::from_bytes(LIGHT_PM_ICON).unwrap()),
     };
 }
 
 /// This function must be called before any window is created.
-/// 
-/// Temporarily sets the environment variable `PORTMASTER_WEBVIEW_UI_PROCESS` to "true".
+///
+/// WINDOWS ONLY (no-op on other platforms):
+///
+/// Temporarily sets the environment variable `PORTMASTER_UI_WEBVIEW_PROCESS` to "true".
 /// This ensures that any child process (i.e., the WebView process) spawned during window creation
 /// will inherit this environment variable. This allows portmaster-core to detect that the process
-/// is a child WebView of the main process.
-/// 
+/// is a child WebView of the main process (see `IsPortmasterUi` in `service/process/profile.go`).
+///
 /// IMPORTANT: After the 'Main' window is created, you must call `do_after_main_window_created()` to remove
 /// the environment variable from the main process environment.
 /// This ensures that any subsequent child processes (such as those created by "open external" functionality)
 /// will not inherit this environment variable, correctly indicating that they are not part of the
 /// Portmaster UI WebView process.
+///
+/// Why Windows only: portmaster-core evaluates the variable only on Windows, and Windows is the
+/// only platform where changing the process environment is thread-safe (other threads are already
+/// running at this point).
 pub fn do_before_any_window_create() {
-    UI_PROCESS_ENV_VAR_DEFINED_FLAG.store(true, Ordering::SeqCst);
-    std::env::set_var(CUSTOM_ENVVAR_FOR_WEBVIEW_PROCESS, "true");
+    // Windows only, see the doc comment above.
+    #[cfg(target_os = "windows")]
+    {
+        UI_PROCESS_ENV_VAR_DEFINED_FLAG.store(true, Ordering::SeqCst);
+        std::env::set_var(CUSTOM_ENVVAR_FOR_WEBVIEW_PROCESS, "true");
+    }
 }
 
 /// This function must be called after the Main window is created.
-/// 
-/// Removes the `PORTMASTER_WEBVIEW_UI_PROCESS` environment variable from the main process.
+///
+/// WINDOWS ONLY (no-op on other platforms), see `do_before_any_window_create`:
+///
+/// Removes the `PORTMASTER_UI_WEBVIEW_PROCESS` environment variable from the main process.
 /// This ensures that only the child WebView process has the variable set, and the main process
 /// does not retain it.
 pub fn do_after_main_window_created() {
-     let flag_was_set = UI_PROCESS_ENV_VAR_DEFINED_FLAG.compare_exchange(
-        true, false, Ordering::SeqCst, Ordering::SeqCst
-    ).is_ok();
+    // Windows only, see `do_before_any_window_create`.
+    #[cfg(target_os = "windows")]
+    {
+        let flag_was_set = UI_PROCESS_ENV_VAR_DEFINED_FLAG.compare_exchange(
+            true, false, Ordering::SeqCst, Ordering::SeqCst
+        ).is_ok();
 
-    if flag_was_set {
-        std::env::remove_var(CUSTOM_ENVVAR_FOR_WEBVIEW_PROCESS);
+        if flag_was_set {
+            std::env::remove_var(CUSTOM_ENVVAR_FOR_WEBVIEW_PROCESS);
+        }
     }
-} 
+}
 
 /// Opens a window for the tauri application.
 ///

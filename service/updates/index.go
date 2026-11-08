@@ -8,9 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	semver "github.com/hashicorp/go-version"
@@ -176,6 +179,37 @@ func ParseIndex(jsonContent []byte, platform string, trustStore jess.TrustStore)
 	return index, nil
 }
 
+func validateArtifactFilename(name string) error {
+	if name == "" || name == "." {
+		return fmt.Errorf("invalid artifact filename %q", name)
+	}
+
+	// Normalize backslashes for cross-platform consistency before using path functions.
+	n := strings.ReplaceAll(name, "\\", "/")
+
+	// Reject non-canonical forms: "./x", "a/../b", "//x", trailing "/".
+	if path.Clean(n) != n {
+		return fmt.Errorf("invalid artifact filename %q: non-canonical path", name)
+	}
+
+	// Reject "..", "../x", and any path element that is "." or "..".
+	if !fs.ValidPath(n) {
+		return fmt.Errorf("invalid artifact filename %q: invalid path", name)
+	}
+
+	// Reject paths with directory components - must be a single plain filename.
+	if path.Base(n) != n {
+		return fmt.Errorf("invalid artifact filename %q: contains path components", name)
+	}
+
+	// Reject Windows drive-relative paths (C:file) and NTFS alternate data streams (file:stream).
+	if strings.ContainsRune(n, ':') {
+		return fmt.Errorf("invalid artifact filename %q: contains ':'", name)
+	}
+
+	return nil
+}
+
 func (index *Index) init(platform string) error {
 	// Parse version number, if set.
 	if index.Version != "" {
@@ -194,6 +228,13 @@ func (index *Index) init(platform string) error {
 		}
 	}
 	index.Artifacts = filtered
+
+	// Validate artifact filenames to prevent path traversal.
+	for _, a := range index.Artifacts {
+		if err := validateArtifactFilename(a.Filename); err != nil {
+			return err
+		}
+	}
 
 	// Parse artifact version numbers.
 	for _, a := range index.Artifacts {

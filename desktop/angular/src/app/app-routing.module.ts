@@ -4,7 +4,6 @@ import { AppViewComponent } from './pages/app-view';
 import { DashboardPageComponent } from './pages/dashboard/dashboard.component';
 import { MonitorPageComponent } from './pages/monitor';
 import { SettingsComponent } from './pages/settings/settings';
-import { SpnPageComponent } from './pages/spn';
 import { SupportPageComponent } from './pages/support';
 import { SupportFormComponent } from './pages/support/form';
 
@@ -49,15 +48,16 @@ const routes: Routes = [
   },
   {
     path: 'spn',
-    component: SpnPageComponent,
-  },
-  {
-    path: '**',
-    redirectTo: 'dashboard'
+    pathMatch: 'full',
+    redirectTo: 'dashboard',
   },
   {
     path: 'dashboard',
     component: DashboardPageComponent
+  },
+  {
+    path: '**',
+    redirectTo: 'dashboard'
   }
 ];
 

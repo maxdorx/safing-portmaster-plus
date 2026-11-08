@@ -201,11 +201,27 @@ func SetExternalVerdictHandler(fn ExtVerdictHandlerFunc) error {
 }
 
 func handlePacket(pkt packet.Packet) {
+	// A packet that already received a verdict - e.g. the default-drop after
+	// the verdict timeout while it waited in the queue - cannot be influenced
+	// anymore. Do not allocate a connection and a handler worker for it, so
+	// that a backlog drains instead of growing.
+	if pkt.VerdictSet() {
+		return
+	}
+
 	// First, check for an existing connection.
 	conn, ok := network.GetConnection(pkt.GetConnectionID())
 	if ok {
 		// Add packet to connection handler queue or apply verdict directly.
 		conn.HandlePacket(pkt)
+		return
+	}
+
+	// Info-only packets do not represent an actual packet and can never complete
+	// a connection. Only keep the reported process attribution, so that the first
+	// real packet - if there ever is one - can skip the state table lookup.
+	if pkt.InfoOnly() {
+		network.SavePIDHint(pkt)
 		return
 	}
 
@@ -471,14 +487,14 @@ func filterHandler(conn *network.Connection, pkt packet.Packet) {
 	switch {
 	case !conn.Inbound && localPortIsPreAuthenticated(conn.Entity.Protocol, conn.LocalPort):
 		// Approve connection.
-		conn.Accept("connection by Portmaster", noReasonOptionKey)
+		conn.Accept("connection by Portmaster Plus", noReasonOptionKey)
 		conn.Internal = true
 		filterConnection = false
 		log.Tracer(pkt.Ctx()).Infof("filter: granting own pre-authenticated connection %s", conn)
 
 	case !conn.Inbound && isOwnSplitTunnelProxyConnection(conn):
 		// Approve connection and skip tunnel check.
-		conn.Accept("split tunnel connection proxied by Portmaster", noReasonOptionKey)
+		conn.Accept("split tunnel connection proxied by Portmaster Plus", noReasonOptionKey)
 		conn.Internal = true
 		filterConnection = false
 		checkTunnel = false
@@ -502,7 +518,7 @@ func filterHandler(conn *network.Connection, pkt packet.Packet) {
 		// Reroute rogue dns queries back to Portmaster.
 		conn.SetVerdict(network.VerdictRerouteToNameserver, "redirecting rogue dns query", "", nil)
 		conn.Internal = true
-		log.Tracer(pkt.Ctx()).Infof("filter: redirecting dns query %s to Portmaster", conn)
+		log.Tracer(pkt.Ctx()).Infof("filter: redirecting dns query %s to Portmaster Plus", conn)
 
 		// Add to DNS request connections to attribute DNS request.
 		network.SaveDNSRequestConnection(conn, pkt)

@@ -230,9 +230,9 @@ func (c *Control) updateStatesAndNotify() {
 	title := ""
 	nType := notifications.Warning
 	if c.pauseInfo.Interception && c.pauseInfo.SPN {
-		title = "Portmaster and SPN paused"
+		title = "Portmaster Plus and SPN paused"
 	} else if c.pauseInfo.Interception {
-		title = "Portmaster paused"
+		title = "Portmaster Plus paused"
 	} else if c.pauseInfo.SPN {
 		title = "SPN paused"
 		nType = notifications.Info // less severe notification for SPN-only pause

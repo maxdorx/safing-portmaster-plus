@@ -19,7 +19,7 @@
     <span class="inline-flex flex-col items-start">
       <span class="text-secondary">Welcome to the</span>
       <span class="text-lg font-semibold">
-        Portmaster Browser Extension
+        Portmaster Plus Browser Extension
       </span>
     </span>
   </h1>
@@ -27,9 +27,9 @@
 <div class="flex flex-col items-center flex-grow p-4 justify-evenly">
   <ng-container *ngIf="state === ''; else: authorizingTemplate">
     <span class="text-sm text-center text-secondary">
-      This extension adds direct support for Portmaster to your Browser. For that, it needs to get access to the
-      Portmaster on your system. For security reasons, you first need to authorize the Browser Extension to talk to the
-      Portmaster.
+      This extension adds direct support for Portmaster Plus to your Browser. For that, it needs to get access to the
+      Portmaster Plus on your system. For security reasons, you first need to authorize the Browser Extension to talk to the
+      Portmaster Plus.
     </span>
 
   </ng-container>
@@ -37,7 +37,7 @@
   <ng-template #authorizingTemplate>
     <h2 class="text-base text-primary">Waiting for Authorization</h2>
     <span class="text-sm text-center text-secondary">
-      Please open the Portmaster and approve the authorization request.
+      Please open the Portmaster Plus and approve the authorization request.
     </span>
   </ng-template>
 

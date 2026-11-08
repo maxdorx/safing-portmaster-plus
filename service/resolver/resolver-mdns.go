@@ -17,6 +17,8 @@ import (
 	"github.com/safing/portmaster/service/network/netutils"
 )
 
+var errNoMDNSInterfaceSent = errors.New("failed to send mDNS query on any interface")
+
 // DNS Classes.
 const (
 	DNSClassMulticast = dns.ClassINET | 1<<15
@@ -197,7 +199,21 @@ func handleMDNSMessages(ctx context.Context, messages chan *dns.Msg) error { //n
 					savedQ = nil
 				}
 			} else if savedQ != nil {
-				question = &savedQ.question
+				// No question section — verify the response actually answers our query.
+				// A non-compliant device may reuse our message ID, poisoning our cache.
+				var answerMatchesPendingQuery bool
+				for _, entry := range message.Answer {
+					// DNS names are case-insensitive per RFC 1035 §2.3.3
+					if strings.EqualFold(entry.Header().Name, savedQ.question.Name) {
+						answerMatchesPendingQuery = true
+						break
+					}
+				}
+				if answerMatchesPendingQuery {
+					question = &savedQ.question
+				} else {
+					savedQ = nil // treat as passive scavenge only
+				}
 			}
 
 			if question != nil {
@@ -318,7 +334,7 @@ func handleMDNSMessages(ctx context.Context, messages chan *dns.Msg) error { //n
 				}
 				rrCache = &RRCache{
 					Domain:   v.Header().Name,
-					Question: dns.Type(v.Header().Class),
+					Question: dns.Type(v.Header().Rrtype),
 					RCode:    dns.RcodeSuccess,
 					Answer:   []dns.RR{v},
 					Resolver: mDNSResolver.Info.Copy(),
@@ -382,12 +398,12 @@ func queryMulticastDNS(ctx context.Context, q *Query) (*RRCache, error) {
 
 	// save question
 	questionsLock.Lock()
-	defer questionsLock.Unlock()
 	questions[dnsQuery.MsgHdr.Id] = &savedQuestion{
 		question: dnsQuery.Question[0],
 		expires:  time.Now().Add(10 * time.Second),
 		response: response,
 	}
+	questionsLock.Unlock()
 
 	// pack qeury
 	buf, err := dnsQuery.Pack()
@@ -396,27 +412,36 @@ func queryMulticastDNS(ctx context.Context, q *Query) (*RRCache, error) {
 	}
 
 	// send queries
+	var anySent bool
+
 	if unicast4Conn != nil && uint16(q.QType) != dns.TypeAAAA {
 		err = unicast4Conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
 		if err != nil {
-			return nil, fmt.Errorf("failed to configure query (set timout): %w", err)
-		}
-
-		_, err = unicast4Conn.WriteToUDP(buf, &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353})
-		if err != nil {
-			return nil, fmt.Errorf("failed to send query: %w", err)
+			log.Tracer(ctx).Warningf("resolver: failed to set write deadline for mDNS IPv4 socket: %s", err)
+		} else {
+			_, err = unicast4Conn.WriteToUDP(buf, &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353})
+			if err != nil {
+				log.Tracer(ctx).Warningf("resolver: failed to send mDNS query via IPv4: %s", err)
+			} else {
+				anySent = true
+			}
 		}
 	}
 	if unicast6Conn != nil && uint16(q.QType) != dns.TypeA {
 		err = unicast6Conn.SetWriteDeadline(time.Now().Add(1 * time.Second))
 		if err != nil {
-			return nil, fmt.Errorf("failed to configure query (set timout): %w", err)
+			log.Tracer(ctx).Warningf("resolver: failed to set write deadline for mDNS IPv6 socket: %s", err)
+		} else {
+			_, err = unicast6Conn.WriteToUDP(buf, &net.UDPAddr{IP: net.IP([]byte{0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfb}), Port: 5353})
+			if err != nil {
+				log.Tracer(ctx).Warningf("resolver: failed to send mDNS query via IPv6: %s", err)
+			} else {
+				anySent = true
+			}
 		}
-
-		_, err = unicast6Conn.WriteToUDP(buf, &net.UDPAddr{IP: net.IP([]byte{0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfb}), Port: 5353})
-		if err != nil {
-			return nil, fmt.Errorf("failed to send query: %w", err)
-		}
+	}
+	if !anySent {
+		return nil, errNoMDNSInterfaceSent
 	}
 
 	// wait for response or timeout

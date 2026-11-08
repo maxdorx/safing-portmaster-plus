@@ -10,6 +10,7 @@ import (
 	"github.com/safing/portmaster/base/database"
 	"github.com/safing/portmaster/base/database/record"
 	"github.com/safing/portmaster/spn/access/account"
+	"github.com/safing/portmaster/spn/conf"
 )
 
 const (
@@ -37,7 +38,7 @@ type UserRecord struct {
 // MayUseSPN returns whether the user may currently use the SPN.
 func (user *UserRecord) MayUseSPN() bool {
 	// Shadow this function in order to allow calls on a nil user.
-	if user == nil || user.User == nil {
+	if conf.Integrated() || user == nil || user.User == nil {
 		return false
 	}
 	return user.User.MayUseSPN()
@@ -46,7 +47,7 @@ func (user *UserRecord) MayUseSPN() bool {
 // MayUsePrioritySupport returns whether the user may currently use the priority support.
 func (user *UserRecord) MayUsePrioritySupport() bool {
 	// Shadow this function in order to allow calls on a nil user.
-	if user == nil || user.User == nil {
+	if conf.Integrated() || user == nil || user.User == nil {
 		return false
 	}
 	return user.User.MayUsePrioritySupport()
@@ -59,6 +60,9 @@ func (user *UserRecord) MayUse(featureID account.FeatureID) bool {
 	// Features enabled by this build, independently of the account.
 	if isLocallyEnabled(featureID) {
 		return true
+	}
+	if conf.Integrated() {
+		return false
 	}
 
 	// Shadow this function in order to allow calls on a nil user.

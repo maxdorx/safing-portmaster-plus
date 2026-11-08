@@ -162,6 +162,7 @@ func (hr *HTTPSResolver) refreshClient() {
 		},
 		IdleConnTimeout:     1 * time.Minute,
 		TLSHandshakeTimeout: defaultConnectTimeout,
+		ForceAttemptHTTP2:   true, // Required when a custom TLSClientConfig is set; enables ALPN h2 negotiation.
 	}
 	hr.client = &http.Client{
 		Transport: tr,

@@ -28,7 +28,7 @@ export class IntroComponent {
     this.cancelRequest$.next();
 
     this.state = 'authorizing';
-    this.meta.requestApplicationAccess("Portmaster Browser Extension")
+    this.meta.requestApplicationAccess("Portmaster Plus Browser Extension")
       .pipe(takeUntil(this.cancelRequest$))
       .subscribe({
         next: token => {

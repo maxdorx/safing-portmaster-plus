@@ -273,7 +273,7 @@ In order to reduce noise optimize performance, internal and device-only (localho
 		Key:  CfgOptionKeepHistoryKey,
 		Description: `Specify how many days the network history data should be kept. Please keep in mind that more available history data makes reports (coming soon) a lot more useful.
 		
-Older data is deleted in intervals and cleared from the database continually. If in a hurry, shutdown or restart Portmaster to clear deleted entries immediately.
+Older data is deleted in intervals and cleared from the database continually. If in a hurry, shutdown or restart Portmaster Plus to clear deleted entries immediately.
 
 Set to 0 days to keep network history forever. Depending on your device, this might affect performance.`,
 		OptType:        config.OptTypeInt,
@@ -662,9 +662,9 @@ Pro Tip: You can use "#" to add a comment to a rule.
 	err = config.Register(&config.Option{
 		Name: "Block Secure DNS Bypassing",
 		Key:  CfgOptionPreventBypassingKey,
-		Description: `Prevent apps from bypassing Portmaster's Secure DNS resolver.
-If disabled, Portmaster might have reduced information to correctly enforce rules and filter lists.
-Important: Portmaster's firewall itself cannot be bypassed.
+		Description: `Prevent apps from bypassing Portmaster Plus's Secure DNS resolver.
+If disabled, Portmaster Plus might have reduced information to correctly enforce rules and filter lists.
+Important: Portmaster Plus's firewall itself cannot be bypassed.
 
 Current Features:  
 - Disable Firefox' internal DNS-over-HTTPs resolver
@@ -768,7 +768,7 @@ Please note that DNS bypass attempts might be additionally blocked in the System
 		Key:  CfgOptionExitHubPolicyKey,
 		Description: `Customize which countries should or should not be used for your Exit Nodes. Exit Nodes are used to exit the SPN and establish a connection to your destination.
 
-By default, the Portmaster tries to choose the node closest to the destination as the Exit Node. This reduces your exposure to the open Internet. Exit Nodes are chosen for every destination separately.`,
+By default, the Portmaster Plus tries to choose the node closest to the destination as the Exit Node. This reduces your exposure to the open Internet. Exit Nodes are chosen for every destination separately.`,
 		Help:         SPNRulesHelp,
 		Sensitive:    true,
 		OptType:      config.OptTypeStringArray,
@@ -795,7 +795,7 @@ By default, the Portmaster tries to choose the node closest to the destination a
 	err = config.Register(&config.Option{
 		Name:         "Select SPN Routing Algorithm",
 		Key:          CfgOptionRoutingAlgorithmKey,
-		Description:  "Select the routing algorithm for your connections through the SPN. Configure your preferred balance between speed and privacy. Portmaster may automatically upgrade the routing algorithm if necessary to protect your privacy.",
+		Description:  "Select the routing algorithm for your connections through the SPN. Configure your preferred balance between speed and privacy. Portmaster Plus may automatically upgrade the routing algorithm if necessary to protect your privacy.",
 		OptType:      config.OptTypeString,
 		DefaultValue: DefaultRoutingProfileID,
 		Annotations: config.Annotations{
@@ -843,9 +843,7 @@ By default, the Portmaster tries to choose the node closest to the destination a
 		Key:  CfgOptionSplitTunUseKey,
 		Description: `Route specific traffic through a different network interface, bypassing default system routing (useful for avoiding VPNs for certain apps).
 
-When you enable this and the Network Interface option is empty, Portmaster will try to route your traffic through the default physical network interface.
-
-Important: SPN takes precedence over Split Tunnel. To use Split Tunnel with SPN, configure SPN on a per-app basis or define exceptions that allow Split Tunnel to take effect.`,
+When you enable this and the Network Interface option is empty, Portmaster Plus will try to route your traffic through the default physical network interface.`,
 		OptType:      config.OptTypeBool,
 		DefaultValue: false,
 		Annotations: config.Annotations{
@@ -869,11 +867,9 @@ Important: SPN takes precedence over Split Tunnel. To use Split Tunnel with SPN,
 - Interface IP address: "192.168.1.1", "10.0.0.1", etc.
 - Interface MAC address: "00:1A:2B:3C:4D:5E", "01:23:45:67:89:AB", etc.
 
-Leave empty to let Portmaster detect the physical network interface and ignore virtual VPN interfaces. This helps bypass VPN tunnels. For better reliability, you can specify the interface manually if empty value does not work as expected.
+Leave empty to let Portmaster Plus detect the physical network interface and ignore virtual VPN interfaces. This helps bypass VPN tunnels. For better reliability, you can specify the interface manually if empty value does not work as expected.
 
-Important: The connection will be dropped if the network interface cannot be detected or becomes unavailable.
-
-Important: SPN takes precedence over Split Tunnel. To use Split Tunnel with SPN, configure SPN on a per-app basis or define exceptions that allow Split Tunnel to take effect.`,
+Important: The connection will be dropped if the network interface cannot be detected or becomes unavailable.`,
 		Sensitive:    true,
 		OptType:      config.OptTypeString,
 		DefaultValue: "",
@@ -902,11 +898,9 @@ Important: SPN takes precedence over Split Tunnel. To use Split Tunnel with SPN,
 	}
 
 	err = config.Register(&config.Option{
-		Name: "Split Tunnel Rules",
-		Key:  CfgOptionSplitTunUsagePolicyKey,
-		Description: `Customize rules which connections should or should not be routed through the Split Tunnel. Only active if "Use Split Tunnel" is enabled.
-		
-Important: SPN takes precedence over Split Tunnel. To use Split Tunnel with SPN, configure SPN on a per-app basis or define exceptions that allow Split Tunnel to take effect.`,
+		Name:         "Split Tunnel Rules",
+		Key:          CfgOptionSplitTunUsagePolicyKey,
+		Description:  `Customize rules which connections should or should not be routed through the Split Tunnel. Only active if "Use Split Tunnel" is enabled.`,
 		Help:         rulesHelp,
 		Sensitive:    true,
 		OptType:      config.OptTypeStringArray,

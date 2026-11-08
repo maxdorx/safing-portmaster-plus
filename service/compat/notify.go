@@ -38,13 +38,13 @@ var (
 	systemIntegrationIssue = &systemIssue{
 		id:      "compat:system-integration-issue",
 		title:   "Detected System Integration Issue",
-		message: "Portmaster detected a problem with its system integration. You can try to restart or reinstall the Portmaster. If that does not help, [get support here](https://safing.io/support/).",
+		message: "Portmaster Plus detected a problem with its system integration. You can try to restart or reinstall the Portmaster Plus. If that does not help, [get support here](https://safing.io/support/).",
 		level:   notifications.Error,
 	}
 	systemCompatibilityIssue = &systemIssue{
 		id:      "compat:compatibility-issue",
 		title:   "Detected Compatibility Issue",
-		message: "Portmaster detected that something is interfering with its operation. This could be a VPN, an Anti-Virus or another network protection software. Please check if you are running an incompatible [VPN client](https://docs.safing.io/portmaster/install/status/vpn-compatibility) or [software](https://docs.safing.io/portmaster/install/status/software-compatibility) and disable it. If that does not help, [get support here](https://safing.io/support/).",
+		message: "Portmaster Plus detected that something is interfering with its operation. This could be a VPN, an Anti-Virus or another network protection software. Please check if you are running an incompatible [VPN client](https://docs.safing.io/portmaster/install/status/vpn-compatibility) or [software](https://docs.safing.io/portmaster/install/status/software-compatibility) and disable it. If that does not help, [get support here](https://safing.io/support/).",
 		level:   notifications.Error,
 	}
 	// manualDNSSetupRequired is additionally initialized in startNotify().
@@ -62,12 +62,12 @@ var (
 			},
 		},
 	}
-	manualDNSSetupRequiredMessage = "You have disabled Seamless DNS Integration. As a result, Portmaster can no longer protect you or filter connections reliably. To fix this, you have to manually configure %s as the DNS Server in your system and in any conflicting application. This message will disappear some time after correct configuration."
+	manualDNSSetupRequiredMessage = "You have disabled Seamless DNS Integration. As a result, Portmaster Plus can no longer protect you or filter connections reliably. To fix this, you have to manually configure %s as the DNS Server in your system and in any conflicting application. This message will disappear some time after correct configuration."
 
 	secureDNSBypassIssue = &appIssue{
 		id:      "compat:secure-dns-bypass-%s",
 		title:   "Blocked Bypass Attempt by %s",
-		message: `[APPNAME] is using its own Secure DNS resolver, which would bypass Portmaster's firewall protections. If [APPNAME] experiences problems, disable Secure DNS within [APPNAME] to restore functionality. Rest assured that Portmaster handles Secure DNS for your whole device, including [APPNAME].`,
+		message: `[APPNAME] is using its own Secure DNS resolver, which would bypass Portmaster Plus's firewall protections. If [APPNAME] experiences problems, disable Secure DNS within [APPNAME] to restore functionality. Rest assured that Portmaster Plus handles Secure DNS for your whole device, including [APPNAME].`,
 		// TODO: Add this when the new docs page is finished:
 		// , or [find out about other options](link to new docs page)
 		level: notifications.Warning,
@@ -75,7 +75,7 @@ var (
 	multiPeerUDPTunnelIssue = &appIssue{
 		id:      "compat:multi-peer-udp-tunnel-%s",
 		title:   "Detected SPN Incompatibility in %s",
-		message: "Portmaster detected that [APPNAME] is trying to connect to multiple servers via the SPN using a single UDP connection. This is common for technologies such as torrents. Unfortunately, the SPN does not support this feature currently. You can try to change this behavior within the affected app or you could exempt it from using the SPN.",
+		message: "Portmaster Plus detected that [APPNAME] is trying to connect to multiple servers via the SPN using a single UDP connection. This is common for technologies such as torrents. Unfortunately, the SPN does not support this feature currently. You can try to change this behavior within the affected app or you could exempt it from using the SPN.",
 		level:   notifications.Warning,
 	}
 )

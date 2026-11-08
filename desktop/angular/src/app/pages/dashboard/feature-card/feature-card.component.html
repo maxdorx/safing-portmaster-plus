@@ -1,4 +1,4 @@
-    <div class="feature-card"
+<div class="feature-card"
       [class.disabled]="disabled || comingSoon"
       [class.clickable]="disabled || comingSoon || !!configValue || !!feature?.ConfigScope"
       (click)="navigateToConfigScope()">
@@ -37,7 +37,7 @@
       </header>
       <div>
         <span class="font-normal ml-7 text-xxs text-secondary">
-          {{ (disabled ? 'Available in ' : '') + 'Portmaster ' + feature?.InPackage?.Name}}
+          Portmaster Plus
           {{ comingSoon ? ' - coming soon' : '' }}
           {{ feature?.Comment }}
         </span>
@@ -53,9 +53,4 @@
         </span>
       </div>
 
-      <div class="ribbon" *ngIf="!!disabled && !!feature?.InPackage"><span class="ribbon__content"
-          [style.backgroundColor]="feature?.InPackage?.HexColor" [style.color]="planColor">
-          {{ feature?.InPackage?.Name }}
-        </span>
-      </div>
     </div>

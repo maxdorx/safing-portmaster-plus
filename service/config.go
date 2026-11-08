@@ -84,9 +84,10 @@ func (sc *ServiceConfig) Init() error {
 		sc.IntelIndexURLs = configure.DefaultIntelIndexURLs
 	}
 
-	// Check log level.
+	// Check log level. An invalid level is not worth a failed start: warn and use the default level instead.
 	if sc.LogLevel != "" && log.ParseLevel(sc.LogLevel) == 0 {
-		return fmt.Errorf("invalid log level %q", sc.LogLevel)
+		log.Warningf("service: invalid log level %q, using the default level instead", sc.LogLevel)
+		sc.LogLevel = ""
 	}
 
 	return nil
@@ -127,6 +128,7 @@ func MakeUpdateConfigs(svcCfg *ServiceConfig) (binaryUpdateConfig, intelUpdateCo
 	case "windows":
 		binaryUpdateConfig = &updates.Config{
 			Name:              configure.DefaultBinaryIndexName,
+			ManualOnly:        true,
 			Directory:         svcCfg.BinDir,
 			DownloadDirectory: filepath.Join(svcCfg.DataDir, "download_binaries"),
 			PurgeDirectory:    filepath.Join(svcCfg.BinDir, "upgrade_obsolete_binaries"),
@@ -142,6 +144,7 @@ func MakeUpdateConfigs(svcCfg *ServiceConfig) (binaryUpdateConfig, intelUpdateCo
 		}
 		intelUpdateConfig = &updates.Config{
 			Name:              configure.DefaultIntelIndexName,
+			ExcludeArtifacts:  []string{"news.yaml", "notifications.yaml"},
 			Directory:         filepath.Join(svcCfg.DataDir, "intel"),
 			DownloadDirectory: filepath.Join(svcCfg.DataDir, "download_intel"),
 			PurgeDirectory:    filepath.Join(svcCfg.DataDir, "upgrade_obsolete_intel"),
@@ -158,6 +161,7 @@ func MakeUpdateConfigs(svcCfg *ServiceConfig) (binaryUpdateConfig, intelUpdateCo
 	case "linux":
 		binaryUpdateConfig = &updates.Config{
 			Name:              configure.DefaultBinaryIndexName,
+			ManualOnly:        true,
 			Directory:         svcCfg.BinDir,
 			DownloadDirectory: filepath.Join(svcCfg.DataDir, "download_binaries"),
 			PurgeDirectory:    filepath.Join(svcCfg.DataDir, "upgrade_obsolete_binaries"),
@@ -188,6 +192,7 @@ func MakeUpdateConfigs(svcCfg *ServiceConfig) (binaryUpdateConfig, intelUpdateCo
 
 		intelUpdateConfig = &updates.Config{
 			Name:              configure.DefaultIntelIndexName,
+			ExcludeArtifacts:  []string{"news.yaml", "notifications.yaml"},
 			Directory:         filepath.Join(svcCfg.DataDir, "intel"),
 			DownloadDirectory: filepath.Join(svcCfg.DataDir, "download_intel"),
 			PurgeDirectory:    filepath.Join(svcCfg.DataDir, "upgrade_obsolete_intel"),

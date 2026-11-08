@@ -155,7 +155,7 @@ func checkPortmasterConnection(ctx context.Context, conn *network.Connection, _ 
 	}
 
 	log.Tracer(ctx).Infof("filter: granting own connection %s", conn)
-	conn.Accept("connection by Portmaster", noReasonOptionKey)
+	conn.Accept("connection by Portmaster Plus", noReasonOptionKey)
 	conn.Internal = true
 	return true
 }

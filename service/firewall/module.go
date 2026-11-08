@@ -41,7 +41,7 @@ type Firewall struct {
 }
 
 func init() {
-	flag.Var(&allowedClients, "allowed-clients", "A list of binaries that are allowed to connect to the Portmaster API")
+	flag.Var(&allowedClients, "allowed-clients", "A list of binaries that are allowed to connect to the Portmaster Plus API")
 }
 
 func (f *Firewall) Manager() *mgr.Manager {

@@ -233,11 +233,11 @@ func notifyOnlineStatus(status OnlineStatus) {
 	case StatusOffline:
 		eventID = "netenv:online-status:offline"
 		title = "Device is Offline"
-		message = "Portmaster did not detect any network connectivity."
+		message = "Portmaster Plus did not detect any network connectivity."
 	case StatusLimited:
 		eventID = "netenv:online-status:limited"
 		title = "Limited network connectivity."
-		message = "Portmaster did detect local network connectivity, but could not detect connectivity to the Internet."
+		message = "Portmaster Plus did detect local network connectivity, but could not detect connectivity to the Internet."
 	default:
 		// Delete notification, if present.
 		if onlineStatusNotification != nil {
@@ -304,7 +304,7 @@ func setCaptivePortal(portalURL *url.URL) {
 		EventID:      "netenv:captive-portal",
 		Type:         notifications.Info,
 		Title:        "Captive Portal Detected",
-		Message:      "The Portmaster detected a captive portal. You might experience limited network connectivity until the portal is handled.",
+		Message:      "The Portmaster Plus detected a captive portal. You might experience limited network connectivity until the portal is handled.",
 		ShowOnSystem: true,
 		EventData:    captivePortal,
 		AvailableActions: []*notifications.Action{
@@ -475,9 +475,10 @@ func checkOnlineStatus(ctx context.Context) {
 
 	// 2) try a http request
 
+	localAddr := getLocalAddr("tcp")
 	dialer := &net.Dialer{
 		Timeout:   5 * time.Second,
-		LocalAddr: getLocalAddr("tcp"),
+		LocalAddr: localAddr,
 	}
 
 	client := &http.Client{
@@ -502,6 +503,10 @@ func checkOnlineStatus(ctx context.Context) {
 
 	response, err := client.Do(request)
 	if err != nil {
+		// The first packet consumes the permitted local port, if one was sent.
+		// Release it otherwise, so it cannot be used by another process.
+		releaseLocalAddr(localAddr, netutils.IsLocalBindError(err))
+
 		var netErr net.Error
 		if !errors.As(err, &netErr) || !netErr.Timeout() {
 			// Timeout is the expected error when there is no portal

@@ -38,12 +38,13 @@ const (
 // UserAgent is an HTTP User-Agent that is used to add
 // more context to requests made by the registry when
 // fetching resources from the update server.
-var UserAgent = fmt.Sprintf("Portmaster (%s %s)", runtime.GOOS, runtime.GOARCH)
+var UserAgent = fmt.Sprintf("Portmaster Plus (%s %s)", runtime.GOOS, runtime.GOARCH)
 
 // Errors.
 var (
-	ErrNotFound  = errors.New("file not found")
-	ErrSameIndex = errors.New("same index")
+	ErrManualUpdatesOnly = errors.New("Portmaster Plus application updates must be installed manually")
+	ErrNotFound          = errors.New("file not found")
+	ErrSameIndex         = errors.New("same index")
 
 	ErrAutoCheckDisabled = errors.New("automatic update checks are disabled")
 	ErrNoUpdateAvailable = errors.New("no update available")
@@ -68,6 +69,11 @@ type UpdateCommandConfig struct {
 
 // Config holds the configuration for the updates module.
 type Config struct {
+	// ManualOnly keeps locally built application files readable but forbids replacement.
+	ManualOnly bool
+	// ExcludeArtifacts omits optional resources after index signature verification.
+	ExcludeArtifacts []string
+
 	// Name of the updater.
 	Name string
 	// Directory is the main directory where the currently to-be-used artifacts live.
@@ -202,9 +208,24 @@ func New(instance instance, name string, cfg Config) (*Updater, error) {
 	module.updateCheckWorkerMgr = m.NewWorkerMgr("update checker", module.updateCheckWorker, nil)
 	module.upgradeWorkerMgr = m.NewWorkerMgr("upgrader", module.upgradeWorker, nil)
 
+	// Locally built application artifacts intentionally differ from the signed upstream index.
+	if cfg.ManualOnly {
+		index, err := GenerateIndexFromDir(cfg.Directory, IndexScanConfig{Name: cfg.Name, Version: info.VersionNumber(), IgnoreFiles: []string{"index.json", "*.orig", "upgrade_obsolete_binaries/*", "download_binaries/*"}})
+		if err != nil {
+			return nil, err
+		}
+		if err := index.init(currentPlatform); err != nil {
+			return nil, err
+		}
+		module.index = index
+		module.cfg.AutoCheck = false
+		return module, nil
+	}
+
 	// Load index.
 	index, err := LoadIndex(filepath.Join(cfg.Directory, cfg.IndexFile), cfg.Platform, cfg.Verify)
 	if err == nil {
+		cfg.filterIndex(index)
 		// Verify artifacts.
 		if err := index.VerifyArtifacts(cfg.Directory); err != nil {
 			module.corruptedInstallation = fmt.Errorf("invalid artifact: %w", err)
@@ -225,6 +246,7 @@ func New(instance instance, name string, cfg Config) (*Updater, error) {
 		Version: info.VersionNumber(),
 	})
 	if err == nil && index.init(currentPlatform) == nil {
+		cfg.filterIndex(index)
 		module.index = index
 		return module, nil
 	}
@@ -234,11 +256,22 @@ func New(instance instance, name string, cfg Config) (*Updater, error) {
 }
 
 func (u *Updater) updateAndUpgrade(w *mgr.WorkerCtx, indexURLs []string, ignoreVersion, forceApply bool) (err error) { //nolint:maintidx
+	if u.cfg.ManualOnly {
+		return ErrManualUpdatesOnly
+	}
 	// Make sure only one update process is running.
 	if !u.isUpdateRunning.SetToIf(false, true) {
 		return fmt.Errorf("an updater task is already running, please try again later")
 	}
 	defer u.isUpdateRunning.UnSet()
+
+	// Resource updates can repair themselves without a restart. Re-apply the
+	// signed current index when startup verification found local corruption.
+	repairCorruptedResources := u.corruptedInstallation != nil && u.cfg.AutoApply && !u.cfg.NeedsRestart
+	if repairCorruptedResources {
+		ignoreVersion = true
+		log.Warningf("updates/%s: repairing corrupted resources", u.cfg.Name)
+	}
 
 	// Create a new downloader.
 	downloader := NewDownloader(u, indexURLs)
@@ -258,6 +291,7 @@ func (u *Updater) updateAndUpgrade(w *mgr.WorkerCtx, indexURLs []string, ignoreV
 		}
 	}
 
+	u.cfg.filterIndex(downloader.index)
 	// Get index to check version.
 	u.indexLock.Lock()
 	index := u.index
@@ -273,8 +307,8 @@ func (u *Updater) updateAndUpgrade(w *mgr.WorkerCtx, indexURLs []string, ignoreV
 					u.instance.Notifications().Notify(&notifications.Notification{
 						EventID: noNewUpdateNotificationID,
 						Type:    notifications.Info,
-						Title:   "Portmaster Is Up-To-Date",
-						Message: "Portmaster v" + index.Version + " is the newest version.",
+						Title:   "Portmaster Plus Is Up-To-Date",
+						Message: "Portmaster Plus v" + index.Version + " is the newest version.",
 						Expires: time.Now().Add(1 * time.Minute).Unix(),
 						AvailableActions: []*notifications.Action{
 							{
@@ -290,8 +324,8 @@ func (u *Updater) updateAndUpgrade(w *mgr.WorkerCtx, indexURLs []string, ignoreV
 					u.instance.Notifications().Notify(&notifications.Notification{
 						EventID: noNewUpdateNotificationID,
 						Type:    notifications.Info,
-						Title:   "Portmaster Is Up-To-Date*",
-						Message: "While Portmaster v" + index.Version + " is the newest version, there is an internal issue with checking for updates: " + err.Error(),
+						Title:   "Portmaster Plus Is Up-To-Date*",
+						Message: "While Portmaster Plus v" + index.Version + " is the newest version, there is an internal issue with checking for updates: " + err.Error(),
 						Expires: time.Now().Add(1 * time.Minute).Unix(),
 						AvailableActions: []*notifications.Action{
 							{
@@ -314,7 +348,7 @@ func (u *Updater) updateAndUpgrade(w *mgr.WorkerCtx, indexURLs []string, ignoreV
 				EventID: updateAvailableNotificationID,
 				Type:    notifications.Info,
 				Title:   "New Update Available",
-				Message: "Portmaster v" + downloader.index.Version + " is available. Click Upgrade to download and upgrade now.",
+				Message: "Portmaster Plus v" + downloader.index.Version + " is available. Click Upgrade to download and upgrade now.",
 				AvailableActions: []*notifications.Action{
 					{
 						ID:   "ack",
@@ -360,7 +394,7 @@ func (u *Updater) updateAndUpgrade(w *mgr.WorkerCtx, indexURLs []string, ignoreV
 				EventID: updateAvailableNotificationID,
 				Type:    notifications.Info,
 				Title:   "New Update Ready",
-				Message: "Portmaster v" + downloader.index.Version + " is available. Click Upgrade to upgrade now.",
+				Message: "Portmaster Plus v" + downloader.index.Version + " is available. Click Upgrade to upgrade now.",
 				AvailableActions: []*notifications.Action{
 					{
 						ID:   "ack",
@@ -397,6 +431,10 @@ func (u *Updater) updateAndUpgrade(w *mgr.WorkerCtx, indexURLs []string, ignoreV
 	if err != nil {
 		log.Debugf("updates/%s: failed to clean up after upgrade: %s", u.cfg.Name, err)
 	}
+	if repairCorruptedResources {
+		u.corruptedInstallation = nil
+		u.states.Remove(corruptInstallationNotificationID)
+	}
 	u.EventResourcesUpdated.Submit(struct{}{})
 
 	// If no restart is needed, we are done.
@@ -411,7 +449,7 @@ func (u *Updater) updateAndUpgrade(w *mgr.WorkerCtx, indexURLs []string, ignoreV
 				EventID: restartRequiredNotificationID,
 				Type:    notifications.Info,
 				Title:   "Restart Required",
-				Message: "Portmaster v" + downloader.index.Version + " is installed. Restart to use new version.",
+				Message: "Portmaster Plus v" + downloader.index.Version + " is installed. Restart to use new version.",
 				AvailableActions: []*notifications.Action{
 					{
 						ID:   "ack",
@@ -485,19 +523,13 @@ func (u *Updater) ForceUpdate() error {
 	})
 }
 
-// UpdateFromURL installs an update from the provided url.
-func (u *Updater) UpdateFromURL(url string) error {
-	u.m.Go("custom update from url", func(w *mgr.WorkerCtx) error {
-		_ = u.updateAndUpgrade(w, []string{url}, true, true)
-		return nil
-	})
-
-	return nil
-}
-
 // Configure makes slight configuration changes to the updater.
 // It locks the index, which can take a while an update is running.
 func (u *Updater) Configure(autoCheck bool, indexURLs []string) {
+	if u.cfg.ManualOnly {
+		autoCheck = false
+		indexURLs = nil
+	}
 	u.configureLock.Lock()
 	defer u.configureLock.Unlock()
 
@@ -524,11 +556,17 @@ func (u *Updater) Configure(autoCheck bool, indexURLs []string) {
 
 // TriggerUpdateCheck triggers an update check.
 func (u *Updater) TriggerUpdateCheck() {
+	if u.cfg.ManualOnly {
+		return
+	}
 	u.updateCheckWorkerMgr.Go()
 }
 
 // TriggerApplyUpdates triggers upgrade.
 func (u *Updater) TriggerApplyUpdates() {
+	if u.cfg.ManualOnly {
+		return
+	}
 	u.upgradeWorkerMgr.Go()
 }
 
@@ -551,7 +589,7 @@ func (u *Updater) Start() error {
 		u.states.Add(mgr.State{
 			ID:      corruptInstallationNotificationID,
 			Name:    "Install Corruption",
-			Message: "Portmaster has detected that one or more of its own files have been corrupted. Please re-install the software. Error: " + u.corruptedInstallation.Error(),
+			Message: "Portmaster Plus has detected that one or more of its own files have been corrupted. Please re-install the software. Error: " + u.corruptedInstallation.Error(),
 			Type:    mgr.StateTypeError,
 			Data:    u.corruptedInstallation,
 		})

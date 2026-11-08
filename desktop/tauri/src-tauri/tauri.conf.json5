@@ -38,7 +38,7 @@
       ]
     }
   },
-  "productName": "Portmaster",
+  "productName": "Portmaster Plus",
   "identifier": "io.safing.portmaster", // this is added as a property to the shortcut on windows (ApplicationUserModelID). Used for notifications.
   "app": {
     "withGlobalTauri": true,

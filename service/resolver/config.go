@@ -88,7 +88,7 @@ func prepConfig() error {
 		Name:        "DNS Servers",
 		Key:         CfgOptionNameServersKey,
 		Description: "DNS servers to use for resolving DNS requests.",
-		Help: strings.ReplaceAll(`DNS servers are used in the order as entered. The first one will be used as the primary DNS Server. Only if it fails, will the other servers be used as a fallback - in their respective order. If all fail, or if no DNS Server is configured here, the Portmaster will use the one configured in your system or network.
+		Help: strings.ReplaceAll(`DNS servers are used in the order as entered. The first one will be used as the primary DNS Server. Only if it fails, will the other servers be used as a fallback - in their respective order. If all fail, or if no DNS Server is configured here, the Portmaster Plus will use the one configured in your system or network.
 
 Additionally, if it is more likely that the DNS server of your system or network has a (better) answer to a request, they will be asked first. This will be the case for special local domains and domain spaces announced on the current network.
 
@@ -96,7 +96,7 @@ DNS servers are configured in a URL format. This allows you to specify special s
 The format is: "protocol://host:port?parameter=value&parameter=value"  
 
 For DoH servers, you can also just paste the URL given by the DNS provider.  
-When referring to the DNS server using a domain name, as with DoH, it is highly recommended to also specify the IP address using the "ip" parameter, so Portmaster does not have to resolve it.
+When referring to the DNS server using a domain name, as with DoH, it is highly recommended to also specify the IP address using the "ip" parameter, so Portmaster Plus does not have to resolve it.
 
 - Protocol
 	- "dot": DNS-over-TLS (or "tls"; recommended)  
@@ -108,7 +108,7 @@ When referring to the DNS server using a domain name, as with DoH, it is highly 
 - Parameters:
 	- "name": give your DNS Server a name that is used for messages and logs
 	- "verify": domain name to verify for "dot", only valid for "dot" and "doh"
-	- "ip": IP address (if using a domain), so Portmaster does not need to resolve it using the system resolver - this is highly recommended
+	- "ip": IP address (if using a domain), so Portmaster Plus does not need to resolve it using the system resolver - this is highly recommended
 	- "blockedif": detect if the name server blocks a query, options:
 		- "empty": server replies with NXDomain status, but without any other record in any section
 		- "refused": server replies with Refused status

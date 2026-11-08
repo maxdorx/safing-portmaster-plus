@@ -61,6 +61,7 @@
                   Choose Icon
                 </label>
                 <button
+                  type="button"
                   *ngIf="!!iconData && profile.Icons?.length"
                   (click)="resetIcon()"
                   class="bg-red-300"
@@ -190,6 +191,7 @@
             />
 
             <button
+              type="button"
               class="bg-opacity-90 bg-red hover:bg-red"
               (click)="removeFingerprint(index)"
             >
@@ -211,7 +213,7 @@
           </div>
         </div>
 
-        <button (click)="addFingerprint()">Add New</button>
+        <button type="button" (click)="addFingerprint()">Add New</button>
       </div>
     </sfng-tab>
 
@@ -240,6 +242,7 @@
             </ng-container>
           </sfng-select>
           <button
+            type="button"
             [disabled]="selectedCopyFrom === null"
             (click)="addCopyFrom()"
           >
@@ -276,6 +279,7 @@
             {{ p.Name }}
             <div class="flex-grow"></div>
             <button
+              type="button"
               class="bg-opacity-90 bg-red hover:bg-red"
               (click)="removeCopyFrom(index)"
             >

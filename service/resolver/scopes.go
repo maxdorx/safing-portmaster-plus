@@ -188,9 +188,14 @@ func GetResolversInScope(ctx context.Context, q *Query) (selected []*Resolver, p
 
 	// Handle multicast domains
 	if domainInScope(q.dotPrefixedFQDN, multicastDomains) {
-		selected = addResolvers(ctx, q, selected, mDNSResolvers)
+		// Unicast resolvers are tried first: DHCP-assigned DNS servers often have
+		// authority over .local domains (e.g. corporate/home networks) and respond
+		// immediately, while mDNS always costs a 1s timeout when it has no answer.
+		// RFC 6762 §3 is satisfied because mDNS is still in the list and will be
+		// tried if unicast resolvers find nothing.
 		selected = addResolvers(ctx, q, selected, localResolvers)
 		selected = addResolvers(ctx, q, selected, systemResolvers)
+		selected = addResolvers(ctx, q, selected, mDNSResolvers)
 		return selected, ServerSourceMDNS, true
 	}
 

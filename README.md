@@ -1,113 +1,114 @@
-# safing-portmaster-plus
+﻿# Portmaster Plus
 
-An unofficial fork of [Safing's Portmaster](https://github.com/safing/portmaster) that enables **Network History** and **Bandwidth Visibility** — the two device-local features otherwise reserved for the paid Portmaster Plus tier — in a self-compiled build.
+An unofficial, device-local fork of Safing Portmaster, based on **v2.2.8**. Network History and Bandwidth Visibility work without an account. SPN, account controls, subscriptions, news, and promotions are removed from the product interface and disabled in the integrated service.
 
-> **Not affiliated with Safing ICS Technologies GmbH.** "Safing" and "Portmaster" are their trademarks, used here only to describe what this fork modifies. This is a community modification. Do not report issues with this build to Safing.
+The existing firewall interface, application rules, DNS filtering, connection monitor, history, and bandwidth charts are retained. Network History still requires enabling its local setting.
 
-## What this does
+Not affiliated with Safing. Portmaster and Safing are upstream trademarks; original copyright, license, and attribution remain. See LICENSE and TRADEMARKS.
 
-| Feature | Status | Why |
-|---|---|---|
-| Network History | Enabled | Writes connections to a local SQLite database on your own machine |
-| Bandwidth Visibility | Enabled | Counts bytes per connection, locally |
-| SPN (Safing Privacy Network) | **Not enabled — and cannot be** | See below |
+## Updates
 
-### Why these two can be enabled and SPN cannot
+Application updates are **manual**. Official core/UI updates could overwrite this fork, so the integrated binary updater cannot download or apply them, including from saved settings or the update API. Build and replace the matching fork artifacts together for future releases.
 
-Portmaster gates features in two fundamentally different ways.
+Filter-list and GeoIP/intelligence updates remain automatic. News and promotional notification artifacts are excluded after signed-index verification; protection resources retain upstream verification.
 
-Network History and Bandwidth Visibility are gated by a **boolean check inside the process running on your own machine**. The code implementing them ships complete in every build; a subscription check simply sets a flag in front of it. That is a licensing decision, not a technical one, and this fork changes it.
+## Download
 
-SPN is gated by **cryptography running on Safing's servers**. Access tokens are blind-signed by their account server and verified by every Hub before it will grant the permissions needed to build a tunnel. That check does not run on your computer, so no patch to this codebase can affect it. Adding SPN to the allowlist would unlock a button and produce nothing but failed connections — which is why the code explicitly refuses to.
+Get the Windows x64 ZIP from [GitHub Releases](https://github.com/maxdorx/safing-portmaster-plus/releases/latest). It is a replacement bundle for an existing official **Portmaster 2.2.8** installation, not an installer. The ZIP contains `portmaster-core.exe`, `portmaster.exe`, `portmaster.zip`, `assets.zip`, and `SHA256SUMS`. Replace all four application files together.
 
-## What changed
+## Build on Windows x64
 
-Three commits, **203 lines added, 0 removed**. Nothing upstream is rewritten or deleted, so this rebases cleanly onto future releases.
+Use Go 1.26 or newer, Node.js/npm, Rust, and the Visual Studio C++ build tools required by upstream Tauri. From this repository run:
 
-- **`spn/access/local_features.go`** *(new)* — an explicit allowlist of locally enabled features, plus the logic that publishes it.
-- **`spn/access/database.go`** *(+5)* — `UserRecord.MayUse` consults the allowlist. This wrapper, not `account.User.MayUse`, is the effective gate: it returns `false` early when nobody is logged in, before the real subscription logic is ever reached.
-- **`spn/access/module.go`** *(+10)* — applies the feature plan from a worker at startup.
-- **`spn/access/local_features_test.go`** *(new)* — regression tests.
-
-### The backend is only half of it
-
-The user interface never calls `MayUse`. It watches the database record `core:spn/account/user` over a websocket and derives every lock — ribbons, disabled toggles, hidden data tiles — from `current_plan.feature_ids`. Patching only the backend makes the features *work* while the UI keeps them invisible and unclickable.
-
-So this fork also publishes the same allowlist through that record. The record is stored in the **logged-out** state: `IsLoggedIn()` still reports false, nothing contacts Safing, and logging in for real replaces it wholesale.
-
-## Installing
-
-You keep the official installation and replace exactly one file: the userspace Go binary. The signed kernel driver, the UI bundle, and the service registration all stay as the installer left them. No Windows Driver Kit, no test-signing, no Secure Boot changes.
-
-> **Read this first.** Portmaster is a firewall with a kernel driver. If the core service fails to start, the driver keeps intercepting packets with no userspace left to make decisions, and **all network traffic stops** — including after a reboot. The `Manual` startup step below exists so a failure cannot survive a restart. Do not skip it.
-
-1. Install Portmaster **v2.2.1** normally from [safing.io](https://safing.io/download/) and confirm it works.
-
-2. Verify the version matches this build, in an **elevated** PowerShell:
-
-   ```powershell
-   & "C:\Program Files\Portmaster\portmaster-core.exe" version
-   ```
-
-   If it is not 2.2.1, do not continue — build from the matching tag instead.
-
-3. Make a failure survivable:
-
-   ```powershell
-   Set-Service PortmasterCore -StartupType Manual
-   ```
-
-4. Swap the binary:
-
-   ```powershell
-   Stop-Service PortmasterCore
-   Copy-Item "C:\Program Files\Portmaster\portmaster-core.exe" "C:\Program Files\Portmaster\portmaster-core.exe.orig"
-   Copy-Item "<downloaded>\portmaster-core.exe" "C:\Program Files\Portmaster\portmaster-core.exe" -Force
-   Start-Service PortmasterCore
-   ```
-
-5. If it starts promptly, restore automatic startup:
-
-   ```powershell
-   Set-Service PortmasterCore -StartupType Automatic
-   ```
-
-   If it hangs instead, reboot. With `Manual` startup the service will not come up, your network works normally, and you can restore `portmaster-core.exe.orig` at your leisure.
-
-6. Open Portmaster. The dashboard should read **"Your current plan is Local Build"**, and Network History and Bandwidth Visibility should be unlocked. Enable Network History from its toggle in Global Settings.
-
-### Reverting
-
-Stop the service, copy `portmaster-core.exe.orig` back over `portmaster-core.exe`, start it. Note that the stored user record persists: the stock UI will still show the features unlocked while the stock backend refuses them. Logging in, or clearing the record, resets it.
-
-## Building from source
-
-Requires Go 1.24+. No C toolchain — the build is `CGO_ENABLED=0`.
-
-```bash
-git clone https://github.com/maxdorx/safing-portmaster-plus.git
-cd safing-portmaster-plus
-CGO_ENABLED=0 go build -trimpath \
-  -ldflags="-X github.com/safing/portmaster/base/info.version=2.2.1" \
-  -o portmaster-core.exe ./cmds/portmaster-core
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging/windows/build-plus.ps1
 ```
 
-Run the tests:
+The build script produces a matching core, Angular UI archive, native desktop executable, and shared assets under dist. It does not install them or restart the firewall. Existing technical filenames and installation identifiers remain compatible with Portmaster.
 
-```bash
-go test ./spn/access/ -short
+## Replace an existing 2.2.8 installation
+
+Use the official **2.2.8** installation and its signed driver. No custom driver, test signing, or Secure Boot changes are needed. Do not replace the driver or native DLL with files from a different version.
+
+1. Download and extract the release ZIP to a local folder. **Do not extract the inner `portmaster.zip` or `assets.zip`.** Close the Portmaster desktop window.
+2. Open **PowerShell as administrator** (right-click PowerShell, then choose **Run as administrator**). Change to the extracted release folder. Normal PowerShell cannot stop the service or write to Program Files.
+3. Paste the entire block below. It verifies the release checksums, backs up all four current files outside the installation directory, records the startup mode, and temporarily sets the service to Manual. If replacement fails, it restores the backed-up files. The startup mode stays Manual until you verify the result.
+
+```powershell
+& {
+    $ErrorActionPreference = 'Stop'
+    $release = (Get-Location).Path
+    $install = 'C:\Program Files\Portmaster'
+    $files = @('portmaster-core.exe', 'portmaster.exe', 'portmaster.zip', 'assets.zip')
+    $expected = @{}
+    Get-Content -LiteralPath (Join-Path $release 'SHA256SUMS') | ForEach-Object {
+        if ($_ -match '^([a-fA-F0-9]{64})  (.+)$') { $expected[$matches[2]] = $matches[1] }
+    }
+    foreach ($file in $files) {
+        $actual = (Get-FileHash -LiteralPath (Join-Path $release $file) -Algorithm SHA256).Hash
+        if (!$expected.ContainsKey($file) -or $actual -ne $expected[$file]) {
+            throw "Checksum mismatch or missing manifest entry: $file"
+        }
+    }
+    $backup = Join-Path $env:USERPROFILE ('Portmaster-backup-' + (Get-Date -Format yyyyMMdd-HHmmss))
+    New-Item -ItemType Directory -Path $backup | Out-Null
+    $startup = (Get-CimInstance Win32_Service -Filter "Name='PortmasterCore'").StartMode
+    $startup | Set-Content -LiteralPath (Join-Path $backup 'startup-mode.txt')
+    foreach ($file in $files) {
+        Copy-Item -LiteralPath (Join-Path $install $file) -Destination $backup
+    }
+    Set-Service PortmasterCore -StartupType Manual
+    Stop-Service PortmasterCore
+    try {
+        foreach ($file in $files) {
+            Copy-Item -LiteralPath (Join-Path $release $file) -Destination (Join-Path $install $file) -Force
+        }
+        Start-Service PortmasterCore
+    } catch {
+        $replacementFailure = $_
+        Stop-Service PortmasterCore -ErrorAction SilentlyContinue
+        foreach ($file in $files) {
+            Copy-Item -LiteralPath (Join-Path $backup $file) -Destination (Join-Path $install $file) -Force
+        }
+        Start-Service PortmasterCore
+        throw $replacementFailure
+    }
+    Write-Host "Backup: $backup"
+    Write-Host "Previous startup mode: $startup. Service is temporarily Manual."
+}
 ```
 
-`TestApplyLocalFeaturesReleasesLock` is not optional decoration. An earlier version of this patch held a record lock across a save that re-locks the same record; `sync.Mutex` is not reentrant, so it self-deadlocked inside module startup and took down all networking on the test machine until Portmaster was uninstalled. That test fails if the locking discipline regresses.
+The firewall can interrupt networking while its service is stopped; prepare the files locally first. If an unexpected reboot happens during replacement, Manual startup prevents a broken core from automatically loading again. Keep the official driver, `portmaster-core.dll`, configuration, and databases unchanged.
 
-## License and trademarks
+4. Open Portmaster Plus. Check internet/DNS access, application rules, Network History, bandwidth charts, settings scrolling, and the tray controls. SPN, news, login, and upgrade buttons should be absent. Version information should identify **Portmaster Plus 2.2.8**.
+5. After those checks pass, restore the previous service startup mode. For a normal automatic installation:
 
-GPLv3, same as upstream — see [LICENSE](LICENSE). Distributing binaries built from this source obliges you to make the corresponding source available; that is what this repository is for.
+```powershell
+Set-Service PortmasterCore -StartupType Automatic
+```
 
-"Safing", "Portmaster" and their logos are trademarks of Safing ICS Technologies GmbH. See [TRADEMARKS](TRADEMARKS). This fork uses those names descriptively and claims no affiliation, endorsement, or origin.
+If the recorded previous mode was Manual, leave it Manual. If it was Disabled, investigate why before enabling startup. Preserve any intentional delayed-start configuration when restoring it.
 
-## Support the upstream project
+### Roll back
 
-Portmaster is a genuinely good piece of open-source software from a small team, and the subscription is what funds it. If you get value out of it, [buy a package](https://safing.io/pricing/) — especially if you want SPN, which is the part with real server and bandwidth costs behind it and the part this fork cannot give you.
+If the service fails to start or networking fails, leave its startup mode Manual and reboot if necessary. In administrator PowerShell, close the UI, stop PortmasterCore, and copy **all four** files from your timestamped backup back into `C:\Program Files\Portmaster`. Start the service and verify networking before restoring its previous startup mode. Use a complete backup from this installation; a lone `.orig` core may belong to a different version.
 
-Upstream README preserved at [README.upstream.md](README.upstream.md).
+Installing an official package later replaces this fork's customizations. Future fork application updates are installed with the same four-file procedure. Filter-list and intelligence updates remain automatic.
+
+## Development checks
+
+```powershell
+go test -short ./spn/access ./spn/captain ./service/firewall ./service ./service/netquery
+go test ./service/updates -run 'TestManualOnly|TestExcluded|TestLocalArtifact|TestValidate' -count=1
+node --test desktop/angular/e2e/local-settings.test.cjs
+```
+
+The access tests retain the record-lock regression: saving while holding a record lock can deadlock startup. Do not move persistence inside that lock.
+
+Shared SPN code remains in the source because local feature gates and other modules use its types and events. The integrated firewall cannot activate the SPN. This fork does not provide access to Safing's network.
+
+See [validation results and limitations](docs/portmaster-plus-validation.md) and [RAM measurements](docs/portmaster-plus-memory.md).
+
+## License
+
+GPLv3, as upstream. Distributing binaries requires making the corresponding source available. Upstream documentation is preserved in README.upstream.md.

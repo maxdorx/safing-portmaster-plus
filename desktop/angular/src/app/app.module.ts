@@ -27,14 +27,11 @@ import { NavigationComponent } from './layout/navigation/navigation';
 import { SideDashComponent } from './layout/side-dash/side-dash';
 import { AppOverviewComponent, AppViewComponent, QuickSettingInternetButtonComponent } from './pages/app-view';
 import { QsHistoryComponent } from './pages/app-view/qs-history/qs-history.component';
-import { QuickSettingSelectExitButtonComponent } from './pages/app-view/qs-select-exit/qs-select-exit';
-import { QuickSettingUseSPNButtonComponent } from './pages/app-view/qs-use-spn/qs-use-spn';
 import { QuickSettingUseSplitTunButtonComponent } from './pages/app-view/qs-use-splittun/qs-use-splittun';
 import { DashboardPageComponent } from './pages/dashboard/dashboard.component';
 import { FeatureCardComponent } from './pages/dashboard/feature-card/feature-card.component';
 import { MonitorPageComponent } from './pages/monitor';
 import { SettingsComponent } from './pages/settings/settings';
-import { SPNModule } from './pages/spn/spn.module';
 import { SupportPageComponent } from './pages/support';
 import { SupportFormComponent } from './pages/support/form';
 import { NotificationsService } from './services';
@@ -61,13 +58,11 @@ import { CommonPipesModule } from './shared/pipes';
 import { ProcessDetailsDialogComponent } from './shared/process-details-dialog';
 import { PromptListComponent } from './shared/prompt-list/prompt-list.component';
 import { SecurityLockComponent } from './shared/security-lock';
-import { SPNAccountDetailsComponent } from './shared/spn-account-details';
-import { SPNLoginComponent } from './shared/spn-login';
-import { SPNStatusComponent } from './shared/spn-status';
 import { PlaceholderComponent } from './shared/text-placeholder';
 import { DashboardWidgetComponent } from './pages/dashboard/dashboard-widget/dashboard-widget.component';
 import { MergeProfileDialogComponent } from './pages/app-view/merge-profile-dialog/merge-profile-dialog.component';
 import { AppInsightsComponent } from './pages/app-view/app-insights/app-insights.component';
+import { AppFingerprintPipe } from './pages/app-view/app-fingerprint.pipe';
 import { INTEGRATION_SERVICE, integrationServiceFactory } from './integration';
 import { SupportProgressDialogComponent } from './pages/support/progress-dialog';
 
@@ -137,8 +132,6 @@ const localeConfig = {
     FuzzySearchPipe,
     AppViewComponent,
     QuickSettingInternetButtonComponent,
-    QuickSettingUseSPNButtonComponent,
-    QuickSettingSelectExitButtonComponent,
     QuickSettingUseSplitTunButtonComponent,
     AppOverviewComponent,
     PlaceholderComponent,
@@ -148,10 +141,7 @@ const localeConfig = {
     SupportPageComponent,
     SupportFormComponent,
     SecurityLockComponent,
-    SPNStatusComponent,
     FeatureScoutComponent,
-    SPNLoginComponent,
-    SPNAccountDetailsComponent,
     NetworkScoutComponent,
     EditProfileDialog,
     ProcessDetailsDialogComponent,
@@ -161,7 +151,8 @@ const localeConfig = {
     FeatureCardComponent,
     MergeProfileDialogComponent,
     AppInsightsComponent,
-    SupportProgressDialogComponent
+    SupportProgressDialogComponent,
+    AppFingerprintPipe
   ],
   imports: [
     BrowserModule,
@@ -200,7 +191,6 @@ const localeConfig = {
     NetqueryModule,
     CommonPipesModule,
     UiModule,
-    SPNModule,
     PortmasterAPIModule.forRoot({
       httpAPI: environment.httpAPI,
       websocketAPI: environment.portAPI,
@@ -235,4 +225,3 @@ export class AppModule {
     library.addIcons(faGithub)
   }
 }
-

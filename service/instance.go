@@ -43,6 +43,7 @@ import (
 	"github.com/safing/portmaster/spn/access"
 	"github.com/safing/portmaster/spn/cabin"
 	"github.com/safing/portmaster/spn/captain"
+	"github.com/safing/portmaster/spn/conf"
 	"github.com/safing/portmaster/spn/crew"
 	"github.com/safing/portmaster/spn/docks"
 	"github.com/safing/portmaster/spn/hub"
@@ -66,6 +67,7 @@ type Instance struct {
 
 	binDir  string
 	dataDir string
+	logDir  string
 
 	exitCode atomic.Int32
 
@@ -125,6 +127,11 @@ type Instance struct {
 
 // New returns a new Portmaster service instance.
 func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
+	// A local service never activates the SPN client, including when embedded
+	// by callers other than portmaster-core.
+	conf.EnableIntegration(true)
+	conf.EnableClient(false)
+
 	// Initialize config.
 	err := svcCfg.Init()
 	if err != nil {
@@ -141,6 +148,7 @@ func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
 	instance := &Instance{
 		binDir:  svcCfg.BinDir,
 		dataDir: svcCfg.DataDir,
+		logDir:  svcCfg.LogDir,
 	}
 	instance.ctx, instance.cancelCtx = context.WithCancel(context.Background())
 	instance.shutdownCtx, instance.cancelShutdownCtx = context.WithCancel(context.Background())
@@ -249,10 +257,6 @@ func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
 	if err != nil {
 		return instance, fmt.Errorf("create status module: %w", err)
 	}
-	instance.broadcasts, err = broadcasts.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create broadcasts module: %w", err)
-	}
 	instance.compat, err = compat.New(instance)
 	if err != nil {
 		return instance, fmt.Errorf("create compat module: %w", err)
@@ -291,42 +295,11 @@ func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
 		return instance, fmt.Errorf("create splittun module: %w", err)
 	}
 
-	// SPN modules
-	instance.cabin, err = cabin.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create cabin module: %w", err)
-	}
-	instance.navigator, err = navigator.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create navigator module: %w", err)
-	}
+	// Keep the dormant status and event container used by local resolver and
+	// interoperability hooks. No SPN network modules are initialized.
 	instance.captain, err = captain.New(instance)
 	if err != nil {
-		return instance, fmt.Errorf("create captain module: %w", err)
-	}
-	instance.crew, err = crew.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create crew module: %w", err)
-	}
-	instance.docks, err = docks.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create docks module: %w", err)
-	}
-	instance.patrol, err = patrol.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create patrol module: %w", err)
-	}
-	instance.ships, err = ships.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create ships module: %w", err)
-	}
-	instance.sluice, err = sluice.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create sluice module: %w", err)
-	}
-	instance.terminal, err = terminal.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create terminal module: %w", err)
+		return instance, fmt.Errorf("create dormant SPN status module: %w", err)
 	}
 
 	// Grouped interception modules that can be paused/resumed together.
@@ -374,7 +347,6 @@ func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
 		instance.serviceGroupInterception,
 
 		instance.status,
-		instance.broadcasts,
 		instance.sync,
 		instance.ui,
 		instance.control,
@@ -382,18 +354,9 @@ func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
 		instance.access,
 	)
 
-	// SPN Group
-	instance.SpnGroup = mgr.NewExtendedGroup(
-		instance.cabin,
-		instance.navigator,
-		instance.captain,
-		instance.crew,
-		instance.docks,
-		instance.patrol,
-		instance.ships,
-		instance.sluice,
-		instance.terminal,
-	)
+	// Preserve pause/shutdown/status interfaces without any network modules
+	// that could be activated through persisted SPN settings.
+	instance.SpnGroup = mgr.NewExtendedGroup()
 
 	return instance, nil
 }
@@ -427,6 +390,11 @@ func (i *Instance) BinDir() string {
 // This directory is expected to be read/writeable.
 func (i *Instance) DataDir() string {
 	return i.dataDir
+}
+
+// LogDir returns the directory for log files.
+func (i *Instance) LogDir() string {
+	return i.logDir
 }
 
 // Database returns the database module.

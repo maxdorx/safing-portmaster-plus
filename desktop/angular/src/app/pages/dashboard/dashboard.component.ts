@@ -1,16 +1,11 @@
 import { KeyValue } from "@angular/common";
-import { AfterContentInit, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, ElementRef, OnInit, QueryList, TrackByFunction, ViewChild, ViewChildren, forwardRef, inject } from "@angular/core";
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, DestroyRef, OnInit, TrackByFunction, inject } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { AppProfileService, BandwidthChartResult, ChartResult, Database, FeatureID, Netquery, PortapiService, SPNService, UserProfile, Verdict } from "@safing/portmaster-api";
-import { SfngDialogService, SfngTabGroupComponent } from "@safing/ui";
-import { Observable, catchError, filter, interval, map, repeat, retry, startWith, throwError } from "rxjs";
-import { ActionIndicatorService } from 'src/app/shared/action-indicator';
-import { DefaultBandwidthChartConfig, SfngNetqueryLineChartComponent } from "src/app/shared/netquery/line-chart/line-chart";
-import { SPNAccountDetailsComponent } from "src/app/shared/spn-account-details";
-import { MAP_HANDLER, MapRef } from "../spn/map-renderer";
+import { BandwidthChartResult, ChartResult, Database, FeatureID, Netquery, SPNService, Verdict } from "@safing/portmaster-api";
+import { map, repeat } from "rxjs";
+import { DefaultBandwidthChartConfig } from "src/app/shared/netquery/line-chart/line-chart";
 import { CircularBarChartConfig, splitQueryResult } from "src/app/shared/netquery/circular-bar-chart/circular-bar-chart.component";
 import { BytesPipe } from "src/app/shared/pipes/bytes.pipe";
-import { HttpErrorResponse } from "@angular/common/http";
 
 interface BlockedProfile {
   profileID: string;
@@ -26,58 +21,23 @@ interface BandwidthBarData {
   received: number;
 }
 
-interface NewsCard {
-  title: string;
-  body: string;
-  url?: string;
-  footer?: string;
-  progress?: {
-    percent: number;
-    style: string;
-  }
-}
-
-interface News {
-  cards: NewsCard[];
-}
-
-const newsResourceIdentifier = "intel/news.yaml"
-
 @Component({
   selector: 'app-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./dashboard.component.scss'],
   templateUrl: './dashboard.component.html',
-  providers: [
-    { provide: MAP_HANDLER, useExisting: forwardRef(() => DashboardPageComponent), multi: true },
-  ]
 })
-export class DashboardPageComponent implements OnInit, AfterViewInit {
-  @ViewChildren(SfngNetqueryLineChartComponent)
-  lineCharts!: QueryList<SfngNetqueryLineChartComponent>;
-
-  @ViewChild(SfngTabGroupComponent)
-  carouselTabGroup?: SfngTabGroupComponent;
+export class DashboardPageComponent implements OnInit {
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly netquery = inject(Netquery);
-  private readonly spn = inject(SPNService);
-  private readonly actionIndicator = inject(ActionIndicatorService);
   private readonly cdr = inject(ChangeDetectorRef);
-  private readonly dialog = inject(SfngDialogService);
-  private readonly portapi = inject(PortapiService)
-
-  resizeObserver!: ResizeObserver;
 
   blockedProfiles: BlockedProfile[] = []
 
   connectionsPerCountry: {
     [country: string]: number
   } = {};
-
-  get countryNames(): { [country: string]: string } {
-    return this.mapRef?.countryNames || {};
-  }
 
   bandwidthLineChart: BandwidthChartResult<any>[] = [];
 
@@ -138,135 +98,22 @@ export class DashboardPageComponent implements OnInit, AfterViewInit {
   activeConnections: number = 0;
   blockedConnections: number = 0;
   activeProfiles: number = 0;
-  activeIdentities = 0;
   dataIncoming = 0;
   dataOutgoing = 0;
   connectionChart: ChartResult[] = [];
-  tunneldConnectionChart: ChartResult[] = [];
 
   countriesPerProfile: { [profile: string]: string[] } = {}
 
-  profile: UserProfile | null = null;
+  featureBw = true;
 
-  featureBw = false;
-  featureSPN = false;
-
-  hoveredCard: NewsCard | null = null;
-
-  features$ = this.spn.watchEnabledFeatures()
-    .pipe(takeUntilDestroyed());
+  features$ = inject(SPNService).loadFeaturePackages().pipe(
+    map(features => features.filter(feature => feature.ID !== 'spn' && feature.RequiredFeatureID !== FeatureID.SPN && !feature.ComingSoon).map(feature => ({ ...feature, enabled: true })))
+  );
 
   trackCountry: TrackByFunction<KeyValue<string, any>> = (_, ctr) => ctr.key;
   trackApp: TrackByFunction<BlockedProfile> = (_, bp) => bp.profileID;
 
-  data: any;
-
-  news?: News | 'pending' = 'pending';
-
-  private mapRef: MapRef | null = null;
-
-  registerMap(ref: MapRef): void {
-    this.mapRef = ref;
-
-    this.mapRef.onMapReady(() => {
-      this.updateMapCountries();
-    })
-  }
-
-  private updateMapCountries() {
-    // this check is basically to make typescript happy ...
-    if (!this.mapRef) {
-      return;
-    }
-
-    this.mapRef.worldGroup
-      .selectAll('path')
-      .classed('active', (d: any) => {
-        return !!this.connectionsPerCountry[d.properties.iso_a2];
-      });
-  }
-
-  unregisterMap(ref: MapRef): void {
-    this.mapRef = null;
-  }
-
-  onCarouselTabHover(card: NewsCard | null) {
-    this.hoveredCard = card;
-  }
-
-  openAccountDetails() {
-    this.dialog.create(SPNAccountDetailsComponent, {
-      autoclose: true,
-      backdrop: 'light'
-    })
-  }
-
-  onCountryHover(code: string | null) {
-    if (!this.mapRef) {
-      return
-    }
-
-    this.mapRef.worldGroup
-      .selectAll('path')
-      .classed('hover', (d: any) => {
-        return (d.properties.iso_a2 === code);
-      });
-  }
-
-  onProfileHover(profile: string | null) {
-    if (!this.mapRef) {
-      return
-    }
-
-    this.mapRef.worldGroup
-      .selectAll('path')
-      .classed('hover', (d: any) => {
-        if (!profile) {
-          return false;
-        }
-
-        return this.countriesPerProfile[profile]?.includes(d.properties.iso_a2);
-      });
-  }
-
-  ngAfterViewInit(): void {
-    interval(15000)
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        startWith(-1),
-        filter(() => this.hoveredCard === null)
-      )
-      .subscribe(() => {
-        if (!this.carouselTabGroup) {
-          return
-        }
-
-        let next = this.carouselTabGroup.activeTabIndex + 1
-        if (next >= this.carouselTabGroup.tabs!.length) {
-          next = 0
-        }
-
-        this.carouselTabGroup.activateTab(next, "left")
-      })
-  }
-
   async ngOnInit() {
-    this.portapi.getResource<News>(newsResourceIdentifier)
-      .pipe(
-        repeat({ delay: 60000 }),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: response => {
-          this.news = response;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.news = undefined;
-          this.cdr.markForCheck();
-        }
-      });
-
     this.netquery
       .batch({
         bwBarChart: {
@@ -332,15 +179,6 @@ export class DashboardPageComponent implements OnInit, AfterViewInit {
           databases: [Database.Live],
         },
 
-        exitNodes: {
-          query: { tunneled: { $eq: true }, exit_node: { $ne: "" } },
-          groupBy: ['exit_node'],
-          select: [
-            'exit_node',
-            { $count: { field: '*', as: 'totalCount' } }
-          ],
-          databases: [Database.Live],
-        }
       })
       .pipe(
         repeat({ delay: 10000 }),
@@ -384,8 +222,6 @@ export class DashboardPageComponent implements OnInit, AfterViewInit {
           this.connectionsPerCountry[row.country!] = row.totalCount || 0;
         })
 
-        this.updateMapCountries()
-
         // perCountryConns
         let profiles = new Set<string>();
 
@@ -406,11 +242,8 @@ export class DashboardPageComponent implements OnInit, AfterViewInit {
 
         this.activeProfiles = profiles.size;
 
-        // exitNodes
-        this.activeIdentities = response.exitNodes?.length || 0;
         this.cdr.markForCheck();
       })
-
 
     // Charts
 
@@ -436,48 +269,5 @@ export class DashboardPageComponent implements OnInit, AfterViewInit {
         this.cdr.markForCheck();
       })
 
-    this.netquery
-      .activeConnectionChart({ tunneled: { $eq: true } })
-      .pipe(
-        repeat({ delay: 10000 }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe(result => {
-        this.tunneldConnectionChart = result;
-        this.cdr.markForCheck();
-      })
-
-    // SPN profile and enabled/allowed features
-
-    this.spn
-      .profile$
-      .pipe(
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe({
-        next: (profile) => {
-          this.profile = profile || null;
-          this.featureBw = profile?.current_plan?.feature_ids?.includes(FeatureID.Bandwidth) || false;
-          this.featureSPN = profile?.current_plan?.feature_ids?.includes(FeatureID.SPN) || false;
-
-          // force a full change-detection cylce now!
-          this.cdr.detectChanges()
-
-          // force re-draw of the charts after change-detection because the
-          // width may change now.
-          this.lineCharts?.forEach(chart => chart.redraw())
-
-          this.cdr.markForCheck();
-        },
-      })
-  }
-
-  /** Logs the user out of the SPN completely by purgin the user profile from the local storage */
-  logoutCompletely(_: Event) {
-    this.spn.logout(true)
-      .subscribe(this.actionIndicator.httpObserver(
-        'Logout',
-        'You have been logged out of the SPN completely.'
-      ))
   }
 }

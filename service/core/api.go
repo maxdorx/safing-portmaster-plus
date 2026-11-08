@@ -39,8 +39,8 @@ func registerAPIEndpoints() error {
 		// Do NOT register as belonging to the module, so that the API is available
 		// when something fails during starting of this module or a dependency.
 		ActionFunc:  shutdown,
-		Name:        "Shut Down Portmaster",
-		Description: "Shut down the Portmaster Core Service and all UI components.",
+		Name:        "Shut Down Portmaster Plus",
+		Description: "Shut down the Portmaster Plus Core Service and all UI components.",
 	}); err != nil {
 		return err
 	}
@@ -51,8 +51,8 @@ func registerAPIEndpoints() error {
 		// Do NOT register as belonging to the module, so that the API is available
 		// when something fails during starting of this module or a dependency.
 		ActionFunc:  restart,
-		Name:        "Restart Portmaster",
-		Description: "Restart the Portmaster Core Service.",
+		Name:        "Restart Portmaster Plus",
+		Description: "Restart the Portmaster Plus Core Service.",
 	}); err != nil {
 		return err
 	}
@@ -114,11 +114,20 @@ func registerAPIEndpoints() error {
 	}
 
 	if err := api.RegisterEndpoint(api.Endpoint{
+		Path:        "core/paths",
+		Read:        api.PermitUser,
+		StructFunc:  getPaths,
+		Name:        "Get Directories",
+		Description: "Returns the directories used by Portmaster Plus: binaries (bin), variable data (data) and log files (logs).",
+	}); err != nil {
+		return err
+	}
+
+	if err := api.RegisterEndpoint(api.Endpoint{
 		Path:        "updates/check",
 		WriteMethod: "POST",
 		Write:       api.PermitUser,
 		ActionFunc: func(ar *api.Request) (string, error) {
-			module.instance.BinaryUpdates().TriggerUpdateCheck()
 			module.instance.IntelUpdates().TriggerUpdateCheck()
 			return "update check triggered", nil
 		},
@@ -132,27 +141,10 @@ func registerAPIEndpoints() error {
 		WriteMethod: "POST",
 		Write:       api.PermitUser,
 		ActionFunc: func(ar *api.Request) (string, error) {
-			module.instance.BinaryUpdates().TriggerApplyUpdates()
 			module.instance.IntelUpdates().TriggerApplyUpdates()
-			return "upgrade triggered", nil
+			return "intelligence update triggered; Portmaster Plus application updates are installed manually", nil
 		},
 		Name: "Trigger updates apply event",
-	}); err != nil {
-		return err
-	}
-
-	if err := api.RegisterEndpoint(api.Endpoint{
-		Path:        "updates/from-url",
-		WriteMethod: "POST",
-		Write:       api.PermitAnyone,
-		ActionFunc: func(ar *api.Request) (string, error) {
-			err := module.instance.BinaryUpdates().UpdateFromURL(string(ar.InputData))
-			if err != nil {
-				return err.Error(), err
-			}
-			return "upgrade triggered", nil
-		},
-		Name: "Replace current version from the version supplied in the URL",
 	}); err != nil {
 		return err
 	}
@@ -171,7 +163,7 @@ func registerAPIEndpoints() error {
 	return nil
 }
 
-// shutdown shuts the Portmaster down.
+// shutdown shuts the Portmaster Plus down.
 func shutdown(_ *api.Request) (msg string, err error) {
 	log.Warning("core: user requested shutdown via action")
 
@@ -179,7 +171,7 @@ func shutdown(_ *api.Request) (msg string, err error) {
 	return "shutdown initiated", nil
 }
 
-// restart restarts the Portmaster.
+// restart restarts the Portmaster Plus.
 func restart(ar *api.Request) (msg string, err error) {
 	log.Info("core: user requested restart via action")
 
@@ -346,6 +338,14 @@ func getSavePermission(p string) api.Permission {
 	}
 }
 
+func getPaths(_ *api.Request) (interface{}, error) {
+	return map[string]string{
+		"bin":  module.instance.BinDir(),
+		"data": module.instance.DataDir(),
+		"logs": module.instance.LogDir(),
+	}, nil
+}
+
 func getMyProfile(ar *api.Request) (interface{}, error) {
 	proc, err := process.GetProcessByRequestOrigin(ar)
 	if err != nil {
@@ -392,8 +392,8 @@ func authorizeApp(ar *api.Request) (interface{}, error) {
 	n := notifications.Notification{
 		Type:         notifications.Prompt,
 		EventID:      "core:authorize-app-" + time.Now().String(),
-		Title:        "An app requests access to the Portmaster",
-		Message:      "Allow " + appName + " (" + proc.Profile().LocalProfile().Name + ") to query and modify the Portmaster?\n\nBinary: " + proc.Path,
+		Title:        "An app requests access to the Portmaster Plus",
+		Message:      "Allow " + appName + " (" + proc.Profile().LocalProfile().Name + ") to query and modify the Portmaster Plus?\n\nBinary: " + proc.Path,
 		ShowOnSystem: true,
 		Expires:      time.Now().Add(time.Minute).Unix(),
 		AvailableActions: []*notifications.Action{

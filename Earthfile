@@ -4,11 +4,11 @@ VERSION 0.8
 # Usage example: earthly --build-arg custom_version="1.2.3" +<target>
 ARG --global custom_version = ""
 
-ARG --global go_version = 1.24
+ARG --global go_version = 1.26
 ARG --global node_version = 18
 ARG --global rust_version = 1.89
 ARG --global tauri_version = "2.2.5"
-ARG --global golangci_lint_version = 1.64.6
+ARG --global golangci_lint_version = 2.12.2
 
 ARG --global go_builder_image = "golang:${go_version}-alpine"
 ARG --global node_builder_image = "node:${node_version}"
@@ -259,7 +259,7 @@ go-test-all:
 go-lint:
     FROM +go-base
 
-    RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@v${golangci_lint_version}
+    RUN go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v${golangci_lint_version}
     RUN golangci-lint run -c ./.golangci.yml --timeout 15m --show-stats
 
 # Builds portmaster-start, portmaster-core, hub and notifier for all supported platforms

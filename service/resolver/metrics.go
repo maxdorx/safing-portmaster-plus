@@ -89,7 +89,7 @@ func suggestUsingStaleCacheTask(_ *mgr.WorkerCtx) error {
 			EventID:      "resolver:suggest-using-stale-cache",
 			Type:         notifications.Info,
 			Title:        "Speed Up Website Loading",
-			Message:      "Portmaster has detected that websites may load slower because DNS queries are currently slower than expected. You may want to switch your DNS provider or enable using expired DNS cache entries for better performance.",
+			Message:      "Portmaster Plus has detected that websites may load slower because DNS queries are currently slower than expected. You may want to switch your DNS provider or enable using expired DNS cache entries for better performance.",
 			ShowOnSystem: isFirstNotification && getSlowQueriesSensorValue() > 500*time.Millisecond,
 			Expires:      time.Now().Add(10 * time.Minute).Unix(),
 			AvailableActions: []*notifications.Action{

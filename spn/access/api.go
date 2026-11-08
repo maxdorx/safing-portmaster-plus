@@ -9,54 +9,17 @@ import (
 	"github.com/safing/portmaster/base/database/record"
 	"github.com/safing/portmaster/base/log"
 	"github.com/safing/portmaster/spn/access/account"
+	"github.com/safing/portmaster/spn/conf"
 )
 
 func registerAPIEndpoints() error {
-	if err := api.RegisterEndpoint(api.Endpoint{
-		Path:        `spn/account/login`,
-		Write:       api.PermitAdmin,
-		WriteMethod: http.MethodPost,
-		HandlerFunc: handleLogin,
-		Name:        "SPN Login",
-		Description: "Log into your SPN account.",
-	}); err != nil {
-		return err
-	}
-
-	if err := api.RegisterEndpoint(api.Endpoint{
-		Path:        `spn/account/logout`,
-		Write:       api.PermitAdmin,
-		WriteMethod: http.MethodDelete,
-		ActionFunc:  handleLogout,
-		Name:        "SPN Logout",
-		Description: "Logout from your SPN account.",
-		Parameters: []api.Parameter{
-			{
-				Method:      http.MethodDelete,
-				Field:       "purge",
-				Value:       "",
-				Description: "If set, account data is purged. Otherwise, the username and device ID are kept in order to log into the same device when logging in with the same user again.",
-			},
-		},
-	}); err != nil {
-		return err
-	}
-
 	if err := api.RegisterEndpoint(api.Endpoint{
 		Path:        `spn/account/user/profile`,
 		Read:        api.PermitUser,
 		ReadMethod:  http.MethodGet,
 		RecordFunc:  handleGetUserProfile,
-		Name:        "SPN User Profile",
-		Description: "Get the user profile of the logged in SPN account.",
-		Parameters: []api.Parameter{
-			{
-				Method:      http.MethodGet,
-				Field:       "refresh",
-				Value:       "",
-				Description: "If set, the user profile is freshly fetched from the account server.",
-			},
-		},
+		Name:        "Local Feature Plan",
+		Description: "Get the local Portmaster Plus feature plan.",
 	}); err != nil {
 		return err
 	}
@@ -69,7 +32,7 @@ func registerAPIEndpoints() error {
 			return struct {
 				Features []Feature
 			}{
-				Features: features,
+				Features: availableFeatures(),
 			}, nil
 		},
 		Name:        "Get Account Features",
@@ -90,7 +53,7 @@ func registerAPIEndpoints() error {
 				return nil, errors.New("invalid feature id")
 			}
 
-			for _, feature := range features {
+			for _, feature := range availableFeatures() {
 				if feature.ID == featureID {
 					return []byte(feature.icon), nil
 				}
@@ -148,6 +111,12 @@ func handleLogout(ar *api.Request) (msg string, err error) {
 }
 
 func handleGetUserProfile(ar *api.Request) (r record.Record, err error) {
+	if conf.Integrated() {
+		if err := ensureLocalFeaturePlan(); err != nil {
+			return nil, err
+		}
+		return GetUser()
+	}
 	// Check if we are already authenticated.
 	user, err := GetUser()
 	if err != nil || user.State == account.UserStateNone {

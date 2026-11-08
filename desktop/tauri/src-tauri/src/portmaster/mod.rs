@@ -23,9 +23,7 @@ pub mod websocket;
 // The notification module manages system notifications from portmaster.
 mod notifications;
 
-use crate::portapi::{
-    client::PortAPI, message::Payload, models::config::BooleanValue, types::Request,
-};
+use crate::portapi::client::PortAPI;
 use std::{
     collections::HashMap,
     sync::atomic::{AtomicBool, Ordering},
@@ -35,7 +33,7 @@ use log::{debug, error};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
-const PORTMASTER_BASE_URL: &str = "http://127.0.0.1:817/api/v1/";
+pub(crate) const PORTMASTER_BASE_URL: &str = "http://127.0.0.1:817/api/v1/";
 
 pub trait Handler {
     fn on_connect(&mut self, cli: PortAPI);
@@ -76,7 +74,7 @@ pub struct PortmasterInterface<R: Runtime> {
     // handle to the tray handler task so we can abort it when reconnecting
     pub tray_handler_task: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 
-    // Marks that a UI process restart event was observed (e.g. on upgrade) 
+    // Marks that a UI process restart event was observed (e.g. on upgrade)
     // and the UI process should relaunch after the next successful reconnect.
     pending_restart: AtomicBool,
 }
@@ -139,7 +137,7 @@ impl<R: Runtime> PortmasterInterface<R> {
         }
     }
 
-    /// Feature functions (enable/disable certain features).
+    // Feature functions (enable/disable certain features).
 
     /// Configures whether or not our tauri app should show system
     /// notifications. This excludes connection prompts. Use
@@ -183,25 +181,7 @@ impl<R: Runtime> PortmasterInterface<R> {
         self.set_show_after_bootstrap(true);
 
         if let Err(err) = self.app.emit("portmaster:show", "") {
-            error!("failed to emit show event: {}", err.to_string());
-        }
-    }
-
-    /// Enables or disables the SPN.
-    pub fn set_spn_enabled(&self, enabled: bool) {
-        if let Some(api) = self.get_api() {
-            let body: Result<Payload, serde_json::Error> = BooleanValue {
-                value: Some(enabled),
-            }
-            .try_into();
-
-            if let Ok(payload) = body {
-                tauri::async_runtime::spawn(async move {
-                    _ = api
-                        .request(Request::Update("config:spn/enable".to_string(), payload))
-                        .await;
-                });
-            }
+            error!("failed to emit show event: {}", err);
         }
     }
 
@@ -242,16 +222,15 @@ impl<R: Runtime> PortmasterInterface<R> {
         });
     }
 
-
-    pub fn set_pause(&self, duration_seconds: u64, spn_only: bool) {
+    pub fn set_pause(&self, duration_seconds: u64) {
         tauri::async_runtime::spawn(async move {
             let client = reqwest::Client::new();
             match client
                 .post(format!("{}control/pause", PORTMASTER_BASE_URL))
                 .json(&serde_json::json!({
-                "duration": duration_seconds,
-                "onlySPN": spn_only
-            }))
+                    "duration": duration_seconds,
+                    "onlySPN": false
+                }))
                 .send()
                 .await
             {

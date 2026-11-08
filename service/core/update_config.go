@@ -26,9 +26,8 @@ const (
 )
 
 var (
-	releaseChannel        config.StringOption
-	enableSoftwareUpdates config.BoolOption
-	enableIntelUpdates    config.BoolOption
+	releaseChannel     config.StringOption
+	enableIntelUpdates config.BoolOption
 
 	initialReleaseChannel string
 )
@@ -78,12 +77,12 @@ func registerUpdateConfig() error {
 	err = config.Register(&config.Option{
 		Name:            "Automatic Software Updates",
 		Key:             enableSoftwareUpdatesKey,
-		Description:     "Automatically check for and download software updates. This does not include intelligence data updates.",
+		Description:     "Application updates for Portmaster Plus are installed manually. Filter-list and intelligence updates remain automatic.",
 		OptType:         config.OptTypeBool,
 		ExpertiseLevel:  config.ExpertiseLevelExpert,
 		ReleaseLevel:    config.ReleaseLevelStable,
 		RequiresRestart: false,
-		DefaultValue:    true,
+		DefaultValue:    false,
 		Annotations: config.Annotations{
 			config.DisplayOrderAnnotation: -12,
 			config.CategoryAnnotation:     "Updates",
@@ -116,7 +115,6 @@ func registerUpdateConfig() error {
 
 func initUpdateConfig() {
 	releaseChannel = config.Concurrent.GetAsString(ReleaseChannelKey, ReleaseChannelStable)
-	enableSoftwareUpdates = config.Concurrent.GetAsBool(enableSoftwareUpdatesKey, true)
 	enableIntelUpdates = config.Concurrent.GetAsBool(enableIntelUpdatesKey, true)
 
 	initialReleaseChannel = releaseChannel()
@@ -129,6 +127,6 @@ func initUpdateConfig() {
 }
 
 func configureUpdates() {
-	module.instance.BinaryUpdates().Configure(enableSoftwareUpdates(), configure.GetBinaryUpdateURLs(releaseChannel()))
+	module.instance.BinaryUpdates().Configure(false, nil)
 	module.instance.IntelUpdates().Configure(enableIntelUpdates(), configure.DefaultIntelIndexURLs)
 }

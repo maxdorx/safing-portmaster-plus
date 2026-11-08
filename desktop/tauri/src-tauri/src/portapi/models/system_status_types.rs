@@ -61,8 +61,6 @@ pub struct SystemStatus {
 pub struct PauseInfo {
     #[serde(rename = "Interception")]
     pub interception: bool,
-    #[serde(rename = "SPN")]  
-    pub spn: bool,
     #[serde(rename = "TillTime")]
     pub till_time: String, // time.Time serialized as string by GoLang
 }

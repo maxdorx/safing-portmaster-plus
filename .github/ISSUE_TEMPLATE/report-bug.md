@@ -31,8 +31,8 @@ Please disclose security related issues privately to support@safing.io.
 
 <!--
 Paste debug information below:
-- General issue: Click on "Copy Debug Information" on the Settings page.
-- App related issue: Click on "Copy Debug Information" in the dropdown menu of an app in the Monitor view.
+- General issue: Click "Copy Debug Info" in the "Version and Tools" menu (bottom-left corner of the Portmaster window).
+- App related issue: Click "Copy Debug Information" in the Details view of the app profile.
 
 ⚠ Please remove sensitive/private information from the "Unexpected Logs" and "Network Connections" sections.
 This is easiest to do in the preview mode.

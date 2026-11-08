@@ -18,7 +18,7 @@ import (
 	"github.com/safing/portmaster/spn/hub"
 )
 
-const DNS_LOCKED_DESCRIPTION = "Portmaster controls all DNS resolution on this system, which prevents conflicts with IVPN's DNS settings. To let IVPN manage DNS again, remove all DNS servers from Portmaster's DNS configuration."
+const DNS_LOCKED_DESCRIPTION = "Portmaster Plus controls all DNS resolution on this system, which prevents conflicts with IVPN's DNS settings. To let IVPN manage DNS again, remove all DNS servers from Portmaster Plus's DNS configuration."
 
 // interopBase defines the interface that the InteropIvpn module expects from its owner
 // (the main Interoperability module).
@@ -155,7 +155,7 @@ func (i *InteropIvpn) connectIvpnClient(wc *mgr.WorkerCtx) error {
 		time.Second*10,
 		ivpnclient.ClientInfo{
 			Type:    ivpnclient.ClientPortmaster,
-			Name:    "Portmaster",
+			Name:    "Portmaster Plus",
 			Version: info.Version()})
 	if err != nil {
 		return nil

@@ -1,11 +1,13 @@
 package sqlite
 
 import (
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/safing/portmaster/base/database/query"
 	"github.com/safing/portmaster/base/database/record"
@@ -212,5 +214,82 @@ func TestSQLite(t *testing.T) {
 	}
 	if cnt != 1 {
 		t.Fatalf("unexpected query result count: %d", cnt)
+	}
+}
+
+func TestMigrationTimezoneRoundTrip(t *testing.T) { //nolint:paralleltest
+	// We intentionally do not call t.Parallel() here,
+	// because this test changes the global time.Local variable, which can affect other tests if run in parallel.
+
+	// Simulate a fixed-offset zone: Go abbreviates it "UTC+2", which contains digits
+	// that cause time.Parse("... MST", ...) to fail when sql-migrate reads back the
+	// applied_at timestamp it wrote into gorp_migrations on the previous open.
+	origLocal := time.Local //nolint:gosmopolitan
+	time.Local = time.FixedZone("UTC+2", 2*60*60) //nolint:gosmopolitan
+	t.Cleanup(func() { time.Local = origLocal })   //nolint:gosmopolitan
+
+	testDir := t.TempDir()
+
+	// First open: writes the gorp_migrations timestamp.
+	db, err := openSQLite("test", testDir, false)
+	require.NoError(t, err)
+	require.NoError(t, db.Shutdown())
+
+	// Second open: sql-migrate reads gorp_migrations to check which migrations ran.
+	// Without the fix that SELECT scan crashes with:
+	// "unsupported Scan, storing driver.Value type string into type *time.Time"
+	db, err = openSQLite("test", testDir, false)
+	require.NoError(t, err)
+	require.NoError(t, db.Shutdown())
+}
+
+func TestPutManyBatches(t *testing.T) { //nolint:paralleltest
+	// Not parallel: this test switches the package-wide UsePreparedStatements
+	// setting, which other tests using PutMany would observe.
+	origSetting := UsePreparedStatements
+	t.Cleanup(func() { UsePreparedStatements = origSetting })
+
+	for _, usePrepared := range []bool{true, false} { //nolint:paralleltest
+		t.Run("prepared="+strconv.FormatBool(usePrepared), func(t *testing.T) {
+			UsePreparedStatements = usePrepared
+			testPutManyBatches(t)
+		})
+	}
+}
+
+func testPutManyBatches(t *testing.T) {
+	t.Helper()
+
+	db, err := openSQLite("test", t.TempDir(), false)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, db.Shutdown())
+	}()
+
+	// Write two full statements and a partial one.
+	const count = upsertRowsPerStatement*2 + 20
+	putRecords := func(value string) {
+		put, errs := db.PutMany(false)
+		for i := range count {
+			r := &TestRecord{S: value, I: i}
+			r.SetKey("test:batch/" + strconv.Itoa(i))
+			r.UpdateMeta()
+			put <- r
+		}
+		close(put)
+		require.NoError(t, <-errs)
+	}
+	putRecords("first")
+
+	// Writing the same keys again must update the records.
+	putRecords("second")
+
+	for i := range count {
+		r, err := db.Get("batch/" + strconv.Itoa(i))
+		require.NoError(t, err)
+		got := &TestRecord{}
+		require.NoError(t, record.Unwrap(r, got))
+		assert.Equal(t, "second", got.S)
+		assert.Equal(t, i, got.I)
 	}
 }

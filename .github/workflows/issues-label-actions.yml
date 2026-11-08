@@ -15,8 +15,8 @@ jobs:
   action:
     runs-on: ubuntu-latest
     steps:
-      - uses: dessant/label-actions@ade7bcd4c1b30de6ba8e556cc31301fd4f79ca65 # v3
+      - uses: dessant/label-actions@65225c179d3b2502f6eda7b3d15101a3f412366b # v5.0.3
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
           config-path: ".github/label-actions.yml"
           process-only: "issues"
