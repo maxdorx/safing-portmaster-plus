@@ -44,6 +44,8 @@ jobs:
     steps:
     - name: Check out code
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      with:
+        fetch-depth: 0
 
     - name: Setup Go
       uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -57,7 +59,9 @@ jobs:
         version: v2.12.2
         install-mode: goinstall
         only-new-issues: true
-        args: -c ./.golangci.yml --timeout 15m
+        # The action applies only-new-issues automatically to PRs, not pushes.
+        # Check all fork changes against the upstream 2.2.8 source on both.
+        args: -c ./.golangci.yml --timeout 15m --new-from-rev=5c82035444a6a383b8b7011ff6834a52f2d238a4
 
     - name: Run go vet
       run: go vet ./...
@@ -65,19 +69,25 @@ jobs:
   test:
     name: Test & Build
     runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: '0'
     steps:
-    - uses: earthly/actions-setup@43211c7a0eae5344d6d79fb4aaf209c8f8866203 # v1
-      with:
-        version: v0.8.0
     - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-    - name: Log in to the Container registry
-      uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+    - name: Setup Go
+      uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
       with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        go-version: '1.26.x'
 
-    - name: Run Go Tests & Build
-      # A fork can read the upstream cache, but cannot publish into its registry.
-      run: earthly --ci --remote-cache=ghcr.io/safing/build-cache +go-ci
+    - name: Test all Go packages
+      run: go test -p 1 -cover -short ./...
+
+    - name: Build supported core targets
+      shell: bash
+      run: |
+        for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+          target_os="${target%/*}"
+          target_arch="${target#*/}"
+          GOOS="$target_os" GOARCH="$target_arch" go build -trimpath \
+            -o "$RUNNER_TEMP/portmaster-core-$target_os-$target_arch" ./cmds/portmaster-core
+        done
