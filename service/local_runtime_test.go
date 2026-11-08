@@ -1,6 +1,8 @@
 package service
 
 import (
+	"os"
+	"os/exec"
 	"runtime"
 	"testing"
 
@@ -9,9 +11,23 @@ import (
 	"github.com/safing/portmaster/spn/conf"
 )
 
-func TestLocalServiceHasNoSPNRuntime(t *testing.T) {
+func TestLocalServiceHasNoSPNRuntime(t *testing.T) { //nolint:paralleltest // construction initializes singleton modules.
 	if runtime.GOOS == "windows" {
 		t.Skip("service data-directory construction requires an administrative Windows token")
+	}
+	// Production modules intentionally allow one instance per process. Keep this
+	// full-construction regression isolated from TestDebug and other unit tests.
+	if os.Getenv("PORTMASTER_SERVICE_CONSTRUCTION_TEST") != "1" {
+		executable, err := os.Executable()
+		if err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command(executable, "-test.run=^TestLocalServiceHasNoSPNRuntime$")
+		cmd.Env = append(os.Environ(), "PORTMASTER_SERVICE_CONSTRUCTION_TEST=1")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("isolated service construction: %v\n%s", err, output)
+		}
+		return
 	}
 	// Embedded callers receive the same local-only service as the core CLI.
 	conf.EnableIntegration(false)

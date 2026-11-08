@@ -3,6 +3,11 @@ name: Go
 on:
   push:
     paths:
+      - '.github/workflows/go.yml'
+      - '.golangci.yml'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Earthfile'
       - '**.go'
       - 'cmds/**'
       - 'runtime/**'
@@ -16,6 +21,11 @@ on:
 
   pull_request:
     paths:
+      - '.github/workflows/go.yml'
+      - '.golangci.yml'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Earthfile'
       - '**.go'
       - 'cmds/**'
       - 'runtime/**'
@@ -45,6 +55,7 @@ jobs:
       uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
       with:
         version: v2.12.2
+        install-mode: goinstall
         only-new-issues: true
         args: -c ./.golangci.yml --timeout 15m
 
@@ -68,4 +79,5 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Run Go Tests & Build
-      run: earthly --ci --remote-cache=ghcr.io/safing/build-cache --push +go-ci
+      # A fork can read the upstream cache, but cannot publish into its registry.
+      run: earthly --ci --remote-cache=ghcr.io/safing/build-cache +go-ci
